@@ -189,27 +189,31 @@ class GarageServiceTest extends TestCase
         $this->assertSame(0, GarageSequence::find(GarageType::BICYCLE->value)->last_number);
     }
 
-    /** TC-031: garasi yang masih disewa hari ini tidak tersedia; sewa yang berakhir hari ini sudah tersedia. */
-    public function test_tc031_availability_follows_rental_dates(): void
+    /** TC-031: garasi tersedia bila tidak ada sewa yang rentangnya bertabrakan dengan rentang yang diminta. */
+    public function test_tc031_availability_follows_rental_date_ranges(): void
     {
-        Carbon::setTestNow('2026-11-21 10:00');
         $type = GarageType::CAR;
-
         $free = Garage::factory()->ofType($type)->create(['code' => 'C901']);
-        $busy = Garage::factory()->ofType($type)->used()->create(['code' => 'C902']);
-        $endsToday = Garage::factory()->ofType($type)->used()->create(['code' => 'C903']);
-        $endedLongAgo = Garage::factory()->ofType($type)->create(['code' => 'C904']);
+        $overlapStart = Garage::factory()->ofType($type)->used()->create(['code' => 'C902']);
+        $overlapMiddle = Garage::factory()->ofType($type)->used()->create(['code' => 'C903']);
+        $covering = Garage::factory()->ofType($type)->used()->create(['code' => 'C904']);
+        $endsAtStart = Garage::factory()->ofType($type)->used()->create(['code' => 'C905']);
+        $startsAtEnd = Garage::factory()->ofType($type)->used()->create(['code' => 'C906']);
 
-        Rental::factory()->for($busy)->between('2026-11-20', '2026-11-25')->create();
-        Rental::factory()->for($endsToday)->between('2026-11-18', '2026-11-21')->create();
-        Rental::factory()->for($endedLongAgo)->between('2026-10-01', '2026-10-05')->create();
+        // Rentang yang diminta: 2 Jan s.d. 5 Jan 2027 (dipakai 2, 3, 4 Jan).
+        Rental::factory()->for($overlapStart)->between('2026-12-30', '2027-01-03')->create();
+        Rental::factory()->for($overlapMiddle)->between('2027-01-03', '2027-01-10')->create();
+        Rental::factory()->for($covering)->between('2026-12-01', '2027-02-01')->create();
+        Rental::factory()->for($endsAtStart)->between('2026-12-28', '2027-01-02')->create();
+        Rental::factory()->for($startsAtEnd)->between('2027-01-05', '2027-01-08')->create();
 
-        $available = $this->service->availableGarages($type, today());
+        $available = $this->service->availableGarages($type, Carbon::parse('2027-01-02'), Carbon::parse('2027-01-05'));
 
-        $this->assertSame(['C901', 'C903', 'C904'], $available->pluck('code')->all());
-        $this->assertFalse($busy->isAvailableOn(today()));
-        $this->assertTrue($endsToday->isAvailableOn(today()));
-        $this->assertTrue($free->isAvailableOn(today()));
+        $this->assertSame(['C901', 'C905', 'C906'], $available->pluck('code')->all());
+        $this->assertTrue($free->isAvailableBetween(Carbon::parse('2027-01-02'), Carbon::parse('2027-01-05')));
+        $this->assertFalse($overlapMiddle->isAvailableBetween(Carbon::parse('2027-01-02'), Carbon::parse('2027-01-05')));
+        $this->assertTrue($endsAtStart->isAvailableOn(Carbon::parse('2027-01-02')));
+        $this->assertFalse($endsAtStart->isAvailableOn(Carbon::parse('2027-01-01')));
     }
 
     /** TC-032: hanya garasi dengan tipe yang diminta. */
@@ -219,11 +223,14 @@ class GarageServiceTest extends TestCase
         Garage::factory()->ofType(GarageType::CAR)->create(['code' => 'C901']);
         Garage::factory()->ofType(GarageType::ELECTRIC_CAR)->create(['code' => 'E901']);
 
-        $this->assertSame(['E901'], $this->service->availableGarages(GarageType::ELECTRIC_CAR, today())->pluck('code')->all());
-        $this->assertSame(['S901'], $this->service->availableGarages(GarageType::BICYCLE, today())->pluck('code')->all());
+        $start = today();
+        $end = today()->addDays(3);
+
+        $this->assertSame(['E901'], $this->service->availableGarages(GarageType::ELECTRIC_CAR, $start, $end)->pluck('code')->all());
+        $this->assertSame(['S901'], $this->service->availableGarages(GarageType::BICYCLE, $start, $end)->pluck('code')->all());
     }
 
-    /** TC-033: garasi used yang sewanya sudah berakhir kembali available; yang masih aktif tetap used. */
+    /** TC-033: garasi used kembali available bila semua sewanya berakhir; sewa berjalan atau akan datang tetap used. */
     public function test_tc033_release_expired_garages(): void
     {
         Carbon::setTestNow('2026-11-21 00:05');
@@ -231,10 +238,12 @@ class GarageServiceTest extends TestCase
         $ended = Garage::factory()->used()->create(['code' => 'C901']);
         $endsToday = Garage::factory()->used()->create(['code' => 'C902']);
         $active = Garage::factory()->used()->create(['code' => 'C903']);
+        $upcoming = Garage::factory()->used()->create(['code' => 'C904']);
 
         Rental::factory()->for($ended)->between('2026-11-10', '2026-11-15')->create();
         Rental::factory()->for($endsToday)->between('2026-11-18', '2026-11-21')->create();
         Rental::factory()->for($active)->between('2026-11-20', '2026-11-30')->create();
+        Rental::factory()->for($upcoming)->between('2026-12-01', '2026-12-05')->create();
 
         $released = $this->service->releaseExpired(today());
 
@@ -242,6 +251,7 @@ class GarageServiceTest extends TestCase
         $this->assertSame(GarageStatus::AVAILABLE, $ended->refresh()->status);
         $this->assertSame(GarageStatus::AVAILABLE, $endsToday->refresh()->status);
         $this->assertSame(GarageStatus::USED, $active->refresh()->status);
+        $this->assertSame(GarageStatus::USED, $upcoming->refresh()->status);
     }
 
     /** nextCodes menampilkan kode berikutnya tanpa menyimpan apa pun. */

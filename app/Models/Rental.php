@@ -85,15 +85,28 @@ class Rental extends Model
     }
 
     /**
+     * Batasi query ke sewa yang rentangnya bertabrakan dengan [$start, $end) (BR-06.1, ASM-01).
+     *
+     * Dua rentang bertabrakan bila sewa.start_date < $end dan sewa.end_date > $start.
+     *
+     * @param  Builder<Rental>  $query
+     */
+    public function scopeOverlapping(Builder $query, CarbonInterface $start, CarbonInterface $end): void
+    {
+        $query->whereDate('start_date', '<', $end->toDateString())
+            ->whereDate('end_date', '>', $start->toDateString());
+    }
+
+    /**
      * Batasi query ke sewa yang aktif pada tanggal $date: start_date <= $date < end_date (ASM-01).
      *
      * @param  Builder<Rental>  $query
      */
     public function scopeActiveOn(Builder $query, CarbonInterface $date): void
     {
-        $day = $date->toDateString();
+        $day = $date->copy()->startOfDay();
 
-        $query->whereDate('start_date', '<=', $day)->whereDate('end_date', '>', $day);
+        $this->scopeOverlapping($query, $day, $day->copy()->addDay());
     }
 
     /**

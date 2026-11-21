@@ -44,6 +44,14 @@ class Garage extends Model
     }
 
     /**
+     * Garasi tersedia untuk rentang [$start, $end) bila tidak ada sewa yang bertabrakan (BR-06.1).
+     */
+    public function isAvailableBetween(CarbonInterface $start, CarbonInterface $end): bool
+    {
+        return ! $this->rentals()->overlapping($start, $end)->exists();
+    }
+
+    /**
      * Garasi tersedia pada tanggal $date bila tidak ada sewa dengan start_date <= $date < end_date (BR-06.1).
      */
     public function isAvailableOn(CarbonInterface $date): bool

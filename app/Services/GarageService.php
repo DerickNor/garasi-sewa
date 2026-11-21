@@ -87,29 +87,30 @@ class GarageService
     }
 
     /**
-     * Garasi bertipe $type yang tersedia pada tanggal $date, urut kode (REQ-RENT-04, BR-06.1).
+     * Garasi bertipe $type yang kosong untuk seluruh rentang [$start, $end), urut kode (REQ-RENT-04, BR-06.1).
      *
      * Ketersediaan diputuskan dari tanggal sewa, bukan dari kolom status.
      *
      * @return Collection<int, Garage>
      */
-    public function availableGarages(GarageType $type, CarbonInterface $date): Collection
+    public function availableGarages(GarageType $type, CarbonInterface $start, CarbonInterface $end): Collection
     {
         return Garage::where('garage_type', $type)
-            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->activeOn($date))
+            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->overlapping($start, $end))
             ->orderBy('code')
             ->get();
     }
 
     /**
-     * Kembalikan status garasi `used` yang sudah tidak punya sewa aktif pada $today menjadi `available` (BR-06.3).
+     * Kembalikan status garasi `used` yang semua sewanya sudah berakhir pada $today menjadi `available`
+     * (BR-06.3, ASM-13). Garasi dengan sewa yang sedang berjalan atau akan datang tetap `used`.
      *
      * @return int jumlah garasi yang dilepas
      */
     public function releaseExpired(CarbonInterface $today): int
     {
         return Garage::where('status', GarageStatus::USED)
-            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->activeOn($today))
+            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->whereDate('end_date', '>', $today->toDateString()))
             ->update(['status' => GarageStatus::AVAILABLE]);
     }
 
