@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GarageController;
+use App\Http\Controllers\Admin\PaymentVerificationController;
 use App\Http\Controllers\Admin\RentalExtensionController;
 use App\Http\Controllers\Admin\RenterVerificationController;
 use App\Http\Controllers\Admin\ReportController;
@@ -23,6 +24,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/garages', [GarageController::class, 'index'])->name('garages.index');
     Route::get('/garages/create', [GarageController::class, 'create'])->name('garages.create');
     Route::post('/garages', [GarageController::class, 'store'])->name('garages.store');
+
+    Route::get('/payments', [PaymentVerificationController::class, 'index'])->name('payments.index');
+    Route::patch('/payments/{rental}/approve', [PaymentVerificationController::class, 'approve'])->name('payments.approve');
+    Route::patch('/payments/{rental}/reject', [PaymentVerificationController::class, 'reject'])->name('payments.reject');
 
     Route::get('/extensions', [RentalExtensionController::class, 'index'])->name('extensions.index');
     Route::get('/extensions/{rental}/create', [RentalExtensionController::class, 'create'])->name('extensions.create');

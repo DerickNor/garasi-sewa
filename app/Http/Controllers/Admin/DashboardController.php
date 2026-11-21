@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Enums\VerificationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Garage;
+use App\Models\Rental;
 use App\Models\User;
 use App\Services\RentalService;
 use App\Services\ReportService;
@@ -17,7 +19,8 @@ use Illuminate\View\View;
 class DashboardController extends Controller
 {
     /**
-     * Tampilkan dashboard admin: pendaftar menunggu, jumlah garasi, sewa aktif, dan pendapatan bulan ini.
+     * Tampilkan dashboard admin: pendaftar dan pembayaran yang menunggu, jumlah garasi, sewa aktif,
+     * dan pendapatan bulan ini.
      */
     public function index(RentalService $rentals, ReportService $reports): View
     {
@@ -27,6 +30,7 @@ class DashboardController extends Controller
             'pendingRenters' => User::where('role', UserRole::PENYEWA)
                 ->where('verification_status', VerificationStatus::PENDING)
                 ->count(),
+            'pendingPayments' => Rental::where('payment_status', PaymentStatus::PENDING)->count(),
             'garageCount' => Garage::count(),
             'activeRentals' => $rentals->activeRentals($today)->count(),
             'monthRevenue' => $reports->monthlyInYear($today->year)[$today->month - 1]['revenue'],

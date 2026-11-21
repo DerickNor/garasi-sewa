@@ -29,6 +29,9 @@
                         <x-nav-link :href="route('admin.garages.index')" :active="request()->routeIs('admin.garages.*')">
                             Garasi
                         </x-nav-link>
+                        <x-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
+                            Verifikasi Pembayaran
+                        </x-nav-link>
                         <x-nav-link :href="route('admin.extensions.index')" :active="request()->routeIs('admin.extensions.*')">
                             Perpanjang Sewa
                         </x-nav-link>
@@ -103,6 +106,9 @@
             @if (Auth::user()->isAdmin())
                 <x-responsive-nav-link :href="route('admin.garages.index')" :active="request()->routeIs('admin.garages.*')">
                     Garasi
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.payments.index')" :active="request()->routeIs('admin.payments.*')">
+                    Verifikasi Pembayaran
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.extensions.index')" :active="request()->routeIs('admin.extensions.*')">
                     Perpanjang Sewa
