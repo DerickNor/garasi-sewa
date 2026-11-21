@@ -98,23 +98,28 @@ class RentalCreationTest extends TestCase
         $this->assertSame(0, Rental::count());
     }
 
-    /** Tipe garasi dikunci sesuai kendaraan: mobil listrik selalu di garasi mobil listrik. */
-    public function test_electric_car_must_use_electric_garage(): void
+    /** Mobil listrik boleh di garasi mobil (BR-01); baterai tidak diisi sehingga tanpa biaya isi listrik. */
+    public function test_electric_car_may_use_car_garage_without_charging(): void
     {
         $this->store([
             'vehicle_type' => 'electric_car', 'battery_capacity_kwh' => 60, 'battery_start_kwh' => 20,
             'garage_type' => 'car', 'garage_id' => $this->carGarage->id,
-        ])->assertSessionHasErrors(['garage_type' => 'Mobil Listrik harus menggunakan garasi Mobil Listrik.']);
+        ])->assertRedirect(route('renter.rentals.index'));
 
-        $this->assertSame(0, Rental::count());
+        $rental = Rental::sole();
+        $this->assertEquals(0, $rental->charging_fee);
+        $this->assertEquals(300000, $rental->total_cost);
     }
 
-    public function test_rental_form_shows_locked_garage_type(): void
+    /** Tipe garasi berupa pilihan yang disesuaikan dengan kendaraan (mobil listrik: mobil atau mobil listrik). */
+    public function test_rental_form_offers_garage_type_choices_per_vehicle(): void
     {
         $this->actingAs($this->renter)
             ->get(route('renter.rentals.create'))
-            ->assertSee('name="garage_type" type="hidden"', false)
-            ->assertDontSee('<select id="garage_type"', false);
+            ->assertSee('<select id="garage_type" name="garage_type"', false)
+            ->assertViewHas('allowedGarageTypes', fn ($allowed) => $allowed['electric_car'] === ['car', 'electric_car']
+                && $allowed['car'] === ['car']
+                && $allowed['bicycle'] === ['bicycle']);
     }
 
     /** TC-057: garasi yang sudah tidak tersedia ditolak dan tidak ada data tersimpan. */

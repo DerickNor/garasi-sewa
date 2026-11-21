@@ -36,7 +36,10 @@
                     this.refreshGarages();
                 },
 
-                // Tipe garasi langsung disesuaikan dengan kendaraan yang dipilih.
+                // Pilihan tipe garasi untuk kendaraan yang dipilih, mis. mobil listrik: Mobil atau Mobil Listrik.
+                get garageTypeOptions() { return config.allowedGarageTypes[this.vehicleType] ?? []; },
+
+                // Saat kendaraan diganti, tipe garasi diisi pilihan awal yang sesuai (mobil listrik: Mobil Listrik).
                 onVehicleChange() {
                     this.garageType = config.defaultGarageTypes[this.vehicleType] ?? '';
                     this.refreshGarages();
@@ -119,6 +122,7 @@
                       'old' => old(),
                       'minStartDate' => $minStartDate,
                       'defaultGarageTypes' => $defaultGarageTypes,
+                      'allowedGarageTypes' => $allowedGarageTypes,
                       'garageTypeLabels' => $garageTypeLabels,
                       'bicycle' => VehicleType::BICYCLE->value,
                       'electricCar' => VehicleType::ELECTRIC_CAR->value,
@@ -245,12 +249,19 @@
                     <h3 class="font-semibold text-gray-800">3. Pilih Garasi</h3>
 
                     <div>
-                        <x-input-label for="garage_type_label" value="Tipe garasi (otomatis sesuai kendaraan)" />
-                        {{-- Tipe garasi tidak dipilih penyewa; nilainya mengikuti tipe kendaraan. --}}
-                        <input id="garage_type" name="garage_type" type="hidden" x-bind:value="garageType">
-                        <x-text-input id="garage_type_label" type="text" readonly tabindex="-1"
-                                      class="mt-1 block w-full bg-gray-100 text-gray-700"
-                                      x-bind:value="garageType ? config.garageTypeLabels[garageType] : 'Pilih tipe kendaraan terlebih dahulu'" />
+                        <x-input-label for="garage_type" value="Tipe garasi (pilihan sesuai kendaraan)" />
+                        {{-- Pilihan disesuaikan dengan kendaraan: mobil listrik boleh di garasi mobil atau mobil listrik. --}}
+                        <select id="garage_type" name="garage_type" x-model="garageType" @change="garageId = ''; refreshGarages()"
+                                x-bind:disabled="garageTypeOptions.length === 0" required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="" x-show="garageTypeOptions.length === 0">Pilih tipe kendaraan terlebih dahulu</option>
+                            <template x-for="type in garageTypeOptions" :key="type">
+                                <option :value="type" x-text="config.garageTypeLabels[type]" :selected="type === garageType"></option>
+                            </template>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500" x-show="isElectric" x-cloak>
+                            Di garasi mobil listrik baterai diisi hingga penuh; di garasi mobil tidak ada biaya isi listrik.
+                        </p>
                         <x-input-error :messages="$errors->get('garage_type')" class="mt-2" />
                     </div>
 

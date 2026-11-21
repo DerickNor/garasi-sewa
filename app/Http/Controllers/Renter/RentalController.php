@@ -52,6 +52,10 @@ class RentalController extends Controller
             'garageTypeLabels' => collect(GarageType::cases())->mapWithKeys(fn (GarageType $type) => [
                 $type->value => $type->label(),
             ]),
+            // Pilihan tipe garasi per kendaraan, mis. mobil listrik -> [car, electric_car] (BR-01).
+            'allowedGarageTypes' => collect(VehicleType::cases())->mapWithKeys(fn (VehicleType $type) => [
+                $type->value => array_map(fn (GarageType $garage) => $garage->value, $type->allowedGarageTypes()),
+            ]),
             'defaultGarageTypes' => collect(VehicleType::cases())->mapWithKeys(fn (VehicleType $type) => [
                 $type->value => $type->defaultGarageType()->value,
             ]),
