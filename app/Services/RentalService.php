@@ -7,10 +7,14 @@ use App\Enums\RentalType;
 use App\Enums\VehicleType;
 use App\Models\Garage;
 use App\Models\Rental;
+use App\Models\RentalExtension;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\ValueObjects\ExtensionBreakdown;
 use App\ValueObjects\PriceBreakdown;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +22,7 @@ use InvalidArgumentException;
 use Throwable;
 
 /**
- * Penyimpanan sewa baru (REQ-RENT-06, REQ-RENT-08, BR-06, BR-08, BR-10).
+ * Penyimpanan sewa baru (REQ-RENT-06, REQ-RENT-08, BR-06, BR-08, BR-10) dan perpanjangan sewa (REQ-EXT, BR-07).
  *
  * Data masukan berupa array hasil validasi form dengan kunci: vehicle_type, plate_number, brand, model,
  * battery_capacity_kwh, battery_start_kwh, rental_type, days, start_date, garage_id.
@@ -63,6 +67,95 @@ class RentalService
 
         try {
             return DB::transaction(fn () => $this->storeRental($renter, $data, $proofPath));
+        } catch (Throwable $e) {
+            Storage::disk(self::PROOF_DISK)->delete($proofPath);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Sewa yang belum berakhir pada $today (sedang berjalan atau akan datang), urut tanggal selesai (REQ-EXT-01).
+     *
+     * @return Collection<int, Rental>
+     */
+    public function activeRentals(CarbonInterface $today): Collection
+    {
+        return Rental::with(['garage', 'user', 'vehicle'])
+            ->whereDate('end_date', '>', $today->toDateString())
+            ->orderBy('end_date')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Hitung kurang bayar bila tanggal selesai $rental dimajukan ke $newEnd (REQ-EXT-03, BR-07).
+     *
+     * Memakai harga harian salinan di data sewa (BR-08), sehingga hasilnya selalu positif.
+     *
+     * @throws InvalidArgumentException bila sewa sudah berakhir, tanggal baru tidak maju, atau bertabrakan
+     */
+    public function previewExtension(Rental $rental, CarbonInterface $newEnd): ExtensionBreakdown
+    {
+        $newEnd = CarbonImmutable::instance($newEnd)->startOfDay();
+        $oldEnd = CarbonImmutable::instance($rental->end_date)->startOfDay();
+
+        if ($oldEnd->lte(today())) {
+            throw new InvalidArgumentException('Sewa ini sudah berakhir sehingga tidak dapat diperpanjang.');
+        }
+
+        $extension = $this->pricing->calculateExtension($oldEnd, $newEnd, (float) $rental->daily_price);
+
+        $garageBooked = Rental::where('garage_id', $rental->garage_id)
+            ->whereKeyNot($rental->id)
+            ->overlapping($oldEnd, $newEnd)
+            ->exists();
+        if ($garageBooked) {
+            throw new InvalidArgumentException("Garasi {$rental->garage->code} sudah disewa orang lain pada tanggal tambahan tersebut.");
+        }
+
+        $vehicleBooked = Rental::where('vehicle_id', $rental->vehicle_id)
+            ->whereKeyNot($rental->id)
+            ->overlapping($oldEnd, $newEnd)
+            ->exists();
+        if ($vehicleBooked) {
+            throw new InvalidArgumentException('Kendaraan ini sudah memiliki sewa lain pada tanggal tambahan tersebut.');
+        }
+
+        return $extension;
+    }
+
+    /**
+     * Perpanjang sewa: simpan catatan perpanjangan dan ubah tanggal selesai dalam satu transaksi (REQ-EXT-04).
+     *
+     * @throws InvalidArgumentException bila perpanjangan melanggar aturan BR-07
+     */
+    public function extendRental(Rental $rental, CarbonInterface $newEnd, User $admin, UploadedFile $proof): RentalExtension
+    {
+        $proofPath = $proof->store(self::PROOF_DIRECTORY, self::PROOF_DISK);
+
+        try {
+            return DB::transaction(function () use ($rental, $newEnd, $admin, $proofPath) {
+                Garage::whereKey($rental->garage_id)->lockForUpdate()->first();
+                $rental = Rental::whereKey($rental->id)->lockForUpdate()->firstOrFail();
+
+                $breakdown = $this->previewExtension($rental, $newEnd);
+
+                $extension = $rental->extensions()->create([
+                    'processed_by' => $admin->id,
+                    'old_end_date' => $rental->end_date,
+                    'new_end_date' => $newEnd,
+                    'extra_months' => $breakdown->months,
+                    'extra_days' => $breakdown->days,
+                    'extra_cost' => $breakdown->cost,
+                    'payment_proof_path' => $proofPath,
+                ]);
+
+                $rental->update(['end_date' => $newEnd]);
+                $rental->garage()->update(['status' => GarageStatus::USED]);
+
+                return $extension;
+            });
         } catch (Throwable $e) {
             Storage::disk(self::PROOF_DISK)->delete($proofPath);
 

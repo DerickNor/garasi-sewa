@@ -8,6 +8,7 @@ use App\Enums\RentalType;
 use App\Enums\VehicleType;
 use App\Models\Garage;
 use App\Models\Rental;
+use App\Models\RentalExtension;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Services\RentalService;
@@ -273,6 +274,125 @@ class RentalServiceTest extends TestCase
         $this->assertEquals(2500000, $preview->totalCost);
         $this->assertSame('2026-12-21', $preview->endDate->toDateString());
         $this->assertSame(0, Rental::count());
+    }
+
+    // ---------------------------------------------------------------- perpanjangan (BR-07)
+
+    private function ongoingRental(string $start = '2026-11-18', string $end = '2026-11-24'): Rental
+    {
+        return Rental::factory()->for($this->carGarage('C950'))->between($start, $end)->create();
+    }
+
+    /** TC-066: hanya sewa yang belum berakhir (berjalan dan akan datang), urut tanggal selesai. */
+    public function test_tc066_active_rentals(): void
+    {
+        $ongoing = Rental::factory()->for($this->carGarage('C901'))->between('2026-11-18', '2026-11-25')->create();
+        $upcoming = Rental::factory()->for($this->carGarage('C902'))->between('2026-11-28', '2026-11-30')->create();
+        Rental::factory()->for($this->carGarage('C903'))->between('2026-11-10', '2026-11-21')->create();
+
+        $active = $this->service->activeRentals(today());
+
+        $this->assertSame([$ongoing->id, $upcoming->id], $active->pluck('id')->all());
+    }
+
+    /** TC-067: perpanjangan valid membuat catatan perpanjangan dan mengubah tanggal selesai. */
+    public function test_tc067_extend_rental(): void
+    {
+        $rental = $this->ongoingRental();
+        $admin = User::factory()->admin()->create();
+
+        $extension = $this->service->extendRental($rental, Carbon::parse('2026-11-27'), $admin, $this->proof());
+
+        $this->assertSame('2026-11-24', $extension->old_end_date->toDateString());
+        $this->assertSame('2026-11-27', $extension->new_end_date->toDateString());
+        $this->assertSame(0, $extension->extra_months);
+        $this->assertSame(3, $extension->extra_days);
+        $this->assertEquals(300000, $extension->extra_cost);
+        $this->assertTrue($extension->processor->is($admin));
+        $this->assertSame('2026-11-27', $rental->refresh()->end_date->toDateString());
+        Storage::disk('public')->assertExists($extension->payment_proof_path);
+    }
+
+    /** TC-015 lewat RentalService: 21 Des 2026 → 24 Jan 2027 = 1 bulan + 3 hari = Rp2.800.000. */
+    public function test_preview_extension_month_and_days(): void
+    {
+        $rental = $this->ongoingRental('2026-11-21', '2026-12-21');
+
+        $preview = $this->service->previewExtension($rental, Carbon::parse('2027-01-24'));
+
+        $this->assertSame(1, $preview->months);
+        $this->assertSame(3, $preview->days);
+        $this->assertEquals(2800000, $preview->cost);
+    }
+
+    /** TC-068: tanggal baru sama dengan atau sebelum tanggal lama ditolak. */
+    public function test_tc068_new_end_date_must_be_later(): void
+    {
+        $rental = $this->ongoingRental();
+
+        foreach (['2026-11-24', '2026-11-22'] as $newEnd) {
+            $this->expectRejected(fn () => $this->service->previewExtension($rental, Carbon::parse($newEnd)));
+        }
+    }
+
+    /** TC-069: perpanjangan tanpa batas maksimum hari. */
+    public function test_tc069_long_extension_is_accepted(): void
+    {
+        $rental = $this->ongoingRental();
+
+        $extension = $this->service->extendRental(
+            $rental, Carbon::parse('2026-11-24')->addDays(200), User::factory()->admin()->create(), $this->proof(),
+        );
+
+        $this->assertGreaterThan(0, $extension->extra_cost);
+        $this->assertSame('2027-06-12', $rental->refresh()->end_date->toDateString());
+    }
+
+    /** TC-070: kurang bayar memakai harga snapshot, bukan harga garasi terbaru. */
+    public function test_tc070_extension_uses_price_snapshot(): void
+    {
+        $rental = $this->ongoingRental();
+        $rental->garage->update(['daily_price' => 999999]);
+
+        $this->assertEquals(300000, $this->service->previewExtension($rental, Carbon::parse('2026-11-27'))->cost);
+    }
+
+    /** TC-072: sewa yang sudah berakhir tidak bisa diperpanjang. */
+    public function test_tc072_ended_rental_cannot_be_extended(): void
+    {
+        $rental = $this->ongoingRental('2026-11-10', '2026-11-21');
+
+        $this->expectRejected(fn () => $this->service->previewExtension($rental, Carbon::parse('2026-11-25')));
+        $this->expectRejected(fn () => $this->service->extendRental(
+            $rental, Carbon::parse('2026-11-25'), User::factory()->admin()->create(), $this->proof(),
+        ));
+
+        $this->assertSame(0, RentalExtension::count());
+        $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    /** TC-073: perpanjangan yang menabrak sewa berikutnya di garasi yang sama ditolak; tepat bersambung diterima. */
+    public function test_tc073_extension_cannot_overlap_next_rental(): void
+    {
+        $rental = $this->ongoingRental();
+        Rental::factory()->for($rental->garage)->between('2026-11-26', '2026-11-30')->create();
+        $admin = User::factory()->admin()->create();
+
+        $this->expectRejected(fn () => $this->service->extendRental($rental, Carbon::parse('2026-11-27'), $admin, $this->proof()));
+        $this->assertSame('2026-11-24', $rental->refresh()->end_date->toDateString());
+
+        $this->service->extendRental($rental, Carbon::parse('2026-11-26'), $admin, $this->proof());
+        $this->assertSame('2026-11-26', $rental->refresh()->end_date->toDateString());
+    }
+
+    /** Perpanjangan ditolak bila kendaraannya sudah punya sewa lain pada tambahan tanggal tersebut (BR-10). */
+    public function test_extension_cannot_overlap_same_vehicle_rental(): void
+    {
+        $rental = $this->ongoingRental();
+        Rental::factory()->for($this->carGarage('C951'))->for($rental->vehicle)->for($rental->user)
+            ->between('2026-11-25', '2026-11-28')->create();
+
+        $this->expectRejected(fn () => $this->service->previewExtension($rental, Carbon::parse('2026-11-27')));
     }
 
     private function expectRejected(callable $action): void
