@@ -96,6 +96,25 @@ class RentalCreationTest extends TestCase
         $this->assertSame(0, Rental::count());
     }
 
+    /** Tipe garasi dikunci sesuai kendaraan: mobil listrik selalu di garasi mobil listrik. */
+    public function test_electric_car_must_use_electric_garage(): void
+    {
+        $this->store([
+            'vehicle_type' => 'electric_car', 'battery_capacity_kwh' => 60, 'battery_start_kwh' => 20,
+            'garage_type' => 'car', 'garage_id' => $this->carGarage->id,
+        ])->assertSessionHasErrors(['garage_type' => 'Mobil Listrik harus menggunakan garasi Mobil Listrik.']);
+
+        $this->assertSame(0, Rental::count());
+    }
+
+    public function test_rental_form_shows_locked_garage_type(): void
+    {
+        $this->actingAs($this->renter)
+            ->get(route('renter.rentals.create'))
+            ->assertSee('name="garage_type" type="hidden"', false)
+            ->assertDontSee('<select id="garage_type"', false);
+    }
+
     /** TC-057: garasi yang sudah tidak tersedia ditolak dan tidak ada data tersimpan. */
     public function test_tc057_unavailable_garage_is_rejected(): void
     {

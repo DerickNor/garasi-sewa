@@ -12,6 +12,7 @@
          */
         function rentalForm(config) {
             return {
+                config,
                 vehicleType: config.old.vehicle_type ?? '',
                 rentalType: config.old.rental_type ?? 'daily',
                 days: config.old.days ?? 1,
@@ -30,7 +31,6 @@
                 get requiresPlate() { return this.vehicleType !== '' && this.vehicleType !== config.bicycle; },
                 get isElectric() { return this.vehicleType === config.electricCar; },
                 get isDaily() { return this.rentalType === config.daily; },
-                get allowedGarageTypes() { return config.allowedGarageTypes[this.vehicleType] ?? []; },
 
                 init() {
                     this.refreshGarages();
@@ -118,8 +118,8 @@
                   x-data="rentalForm(@js([
                       'old' => old(),
                       'minStartDate' => $minStartDate,
-                      'allowedGarageTypes' => $allowedGarageTypes,
                       'defaultGarageTypes' => $defaultGarageTypes,
+                      'garageTypeLabels' => $garageTypeLabels,
                       'bicycle' => VehicleType::BICYCLE->value,
                       'electricCar' => VehicleType::ELECTRIC_CAR->value,
                       'daily' => RentalType::DAILY->value,
@@ -245,16 +245,12 @@
                     <h3 class="font-semibold text-gray-800">3. Pilih Garasi</h3>
 
                     <div>
-                        <x-input-label for="garage_type" value="Tipe garasi" />
-                        <select id="garage_type" name="garage_type" x-model="garageType" @change="refreshGarages()" required
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">Pilih tipe garasi</option>
-                            @foreach ($garageTypes as $type)
-                                <option value="{{ $type->value }}" x-show="allowedGarageTypes.includes('{{ $type->value }}')"
-                                        x-bind:disabled="!allowedGarageTypes.includes('{{ $type->value }}')">{{ $type->label() }}</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1 text-xs text-gray-500" x-show="!vehicleType">Pilih tipe kendaraan terlebih dahulu.</p>
+                        <x-input-label for="garage_type_label" value="Tipe garasi (otomatis sesuai kendaraan)" />
+                        {{-- Tipe garasi tidak dipilih penyewa; nilainya mengikuti tipe kendaraan. --}}
+                        <input id="garage_type" name="garage_type" type="hidden" x-bind:value="garageType">
+                        <x-text-input id="garage_type_label" type="text" readonly tabindex="-1"
+                                      class="mt-1 block w-full bg-gray-100 text-gray-700"
+                                      x-bind:value="garageType ? config.garageTypeLabels[garageType] : 'Pilih tipe kendaraan terlebih dahulu'" />
                         <x-input-error :messages="$errors->get('garage_type')" class="mt-2" />
                     </div>
 

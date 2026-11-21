@@ -49,9 +49,8 @@ class RentalController extends Controller
 
         return view('renter.rentals.create', [
             'vehicleTypes' => VehicleType::cases(),
-            'garageTypes' => GarageType::cases(),
-            'allowedGarageTypes' => collect(VehicleType::cases())->mapWithKeys(fn (VehicleType $type) => [
-                $type->value => array_map(fn (GarageType $garage) => $garage->value, $type->allowedGarageTypes()),
+            'garageTypeLabels' => collect(GarageType::cases())->mapWithKeys(fn (GarageType $type) => [
+                $type->value => $type->label(),
             ]),
             'defaultGarageTypes' => collect(VehicleType::cases())->mapWithKeys(fn (VehicleType $type) => [
                 $type->value => $type->defaultGarageType()->value,

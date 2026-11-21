@@ -104,13 +104,16 @@ class StoreRentalRequest extends FormRequest
             function (Validator $validator): void {
                 $errors = $validator->errors();
 
-                // Kendaraan harus cocok dengan tipe garasi, dan garasi yang dipilih harus bertipe sama.
+                // Tipe garasi dikunci sesuai kendaraan (mobil listrik selalu di garasi mobil listrik),
+                // dan garasi yang dipilih harus bertipe sama.
                 if (! $errors->hasAny(['vehicle_type', 'garage_type'])) {
                     $vehicle = VehicleType::from($this->input('vehicle_type'));
                     $garage = GarageType::from($this->input('garage_type'));
 
                     if (! $garage->acceptsVehicle($vehicle)) {
                         $errors->add('garage_type', "{$vehicle->label()} tidak dapat ditempatkan di garasi {$garage->label()}.");
+                    } elseif ($garage !== $vehicle->defaultGarageType()) {
+                        $errors->add('garage_type', "{$vehicle->label()} harus menggunakan garasi {$vehicle->defaultGarageType()->label()}.");
                     } elseif (! $errors->has('garage_id')
                         && Garage::find($this->input('garage_id'))?->garage_type !== $garage) {
                         $errors->add('garage_id', 'Garasi yang dipilih bukan garasi '.$garage->label().'.');
