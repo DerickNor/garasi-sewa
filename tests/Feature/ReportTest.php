@@ -98,6 +98,16 @@ class ReportTest extends TestCase
             ->assertSessionHasErrors('to');
     }
 
+    public function test_admin_dashboard_shows_active_rentals_and_month_revenue(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertViewHas('activeRentals', 1)
+            ->assertViewHas('monthRevenue', 305000.0)
+            ->assertSee('Rp305.000');
+    }
+
     /** TC-080: hanya admin yang bisa membuka laporan. */
     public function test_tc080_only_admin_can_open_reports(): void
     {
