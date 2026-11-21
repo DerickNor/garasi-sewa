@@ -8,6 +8,7 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-6">
                 <p class="text-sm text-gray-500">Pendaftar menunggu verifikasi</p>
                 <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $pendingRenters }}</p>
+                <a href="{{ route('admin.renters.index') }}" class="mt-3 inline-block text-sm text-indigo-600 hover:underline">Lihat daftar pendaftar</a>
             </div>
             <div class="bg-white shadow-sm sm:rounded-lg p-6">
                 <p class="text-sm text-gray-500">Jumlah garasi</p>
