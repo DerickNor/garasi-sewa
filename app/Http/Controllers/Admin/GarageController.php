@@ -22,14 +22,17 @@ class GarageController extends Controller
     private const PER_PAGE = 50;
 
     /**
-     * Daftar garasi, bisa difilter berdasarkan tipe dan status.
+     * Daftar garasi, bisa difilter berdasarkan tipe dan status (REQ-GAR-02).
      */
-    public function index(Request $request): View
+    public function index(Request $request, GarageService $garages): View
     {
+        // Lepas garasi yang masa sewanya sudah habis agar status selalu benar walau penjadwal belum berjalan.
+        $garages->releaseExpired(today());
+
         $type = GarageType::tryFrom((string) $request->query('type'));
         $status = GarageStatus::tryFrom((string) $request->query('status'));
 
-        $garages = Garage::query()
+        $list = Garage::query()
             ->when($type, fn ($query) => $query->where('garage_type', $type))
             ->when($status, fn ($query) => $query->where('status', $status))
             ->orderBy('code')
@@ -37,7 +40,7 @@ class GarageController extends Controller
             ->withQueryString();
 
         return view('admin.garages.index', [
-            'garages' => $garages,
+            'garages' => $list,
             'selectedType' => $type,
             'selectedStatus' => $status,
         ]);
