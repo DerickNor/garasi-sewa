@@ -15,6 +15,16 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('*.dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    @if (! Auth::user()->isAdmin())
+                        @if (Auth::user()->isApprovedRenter())
+                            <x-nav-link :href="route('renter.rentals.create')" :active="request()->routeIs('renter.rentals.create')">
+                                Sewa Garasi
+                            </x-nav-link>
+                        @endif
+                        <x-nav-link :href="route('renter.rentals.index')" :active="request()->routeIs('renter.rentals.index')">
+                            Riwayat Sewa
+                        </x-nav-link>
+                    @endif
                     @if (Auth::user()->isAdmin())
                         <x-nav-link :href="route('admin.garages.index')" :active="request()->routeIs('admin.garages.*')">
                             Garasi
@@ -74,6 +84,16 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('*.dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            @if (! Auth::user()->isAdmin())
+                @if (Auth::user()->isApprovedRenter())
+                    <x-responsive-nav-link :href="route('renter.rentals.create')" :active="request()->routeIs('renter.rentals.create')">
+                        Sewa Garasi
+                    </x-responsive-nav-link>
+                @endif
+                <x-responsive-nav-link :href="route('renter.rentals.index')" :active="request()->routeIs('renter.rentals.index')">
+                    Riwayat Sewa
+                </x-responsive-nav-link>
+            @endif
             @if (Auth::user()->isAdmin())
                 <x-responsive-nav-link :href="route('admin.garages.index')" :active="request()->routeIs('admin.garages.*')">
                     Garasi

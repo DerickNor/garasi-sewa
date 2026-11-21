@@ -19,8 +19,12 @@
                     </div>
                     @break
                 @default
-                    <div class="rounded-md bg-green-50 border border-green-200 p-4 text-sm text-green-800">
-                        Akun Anda sudah <strong>disetujui</strong>. Anda dapat menyewa garasi.
+                    <div class="rounded-md bg-green-50 border border-green-200 p-4 text-sm text-green-800 flex flex-wrap items-center justify-between gap-3">
+                        <span>Akun Anda sudah <strong>disetujui</strong>. Anda dapat menyewa garasi.</span>
+                        <span class="flex gap-3">
+                            <a href="{{ route('renter.rentals.create') }}" class="rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700">Sewa Garasi Baru</a>
+                            <a href="{{ route('renter.rentals.index') }}" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:bg-gray-50">Riwayat Sewa</a>
+                        </span>
                     </div>
             @endswitch
 
