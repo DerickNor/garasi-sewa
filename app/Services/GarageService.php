@@ -110,13 +110,14 @@ class GarageService
     /**
      * Kembalikan status garasi `used` yang semua sewanya sudah berakhir pada $today menjadi `available`
      * (BR-06.3, ASM-13). Garasi dengan sewa yang sedang berjalan atau akan datang tetap `used`.
+     * Sewa yang pembayarannya ditolak tidak lagi menahan garasi (BR-12.4).
      *
      * @return int jumlah garasi yang dilepas
      */
     public function releaseExpired(CarbonInterface $today): int
     {
         return Garage::where('status', GarageStatus::USED)
-            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->whereDate('end_date', '>', $today->toDateString()))
+            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->notRejected()->whereDate('end_date', '>', $today->toDateString()))
             ->update(['status' => GarageStatus::AVAILABLE]);
     }
 

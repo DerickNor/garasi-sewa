@@ -254,6 +254,20 @@ class GarageServiceTest extends TestCase
         $this->assertSame(GarageStatus::USED, $upcoming->refresh()->status);
     }
 
+    /** Sewa yang pembayarannya ditolak tidak menahan garasi: garasi tersedia dan statusnya dilepas (BR-12.4). */
+    public function test_rejected_rentals_do_not_hold_garages(): void
+    {
+        Carbon::setTestNow('2026-11-21 00:05');
+        $garage = Garage::factory()->used()->create(['code' => 'C901']);
+        Rental::factory()->rejectedPayment()->for($garage)->between('2026-11-20', '2026-11-30')->create();
+
+        $available = $this->service->availableGarages(GarageType::CAR, Carbon::parse('2026-11-21'), Carbon::parse('2026-11-24'));
+
+        $this->assertSame(['C901'], $available->pluck('code')->all());
+        $this->assertSame(1, $this->service->releaseExpired(today()));
+        $this->assertSame(GarageStatus::AVAILABLE, $garage->refresh()->status);
+    }
+
     /** nextCodes menampilkan kode berikutnya tanpa menyimpan apa pun. */
     public function test_next_codes_preview_does_not_change_sequence(): void
     {

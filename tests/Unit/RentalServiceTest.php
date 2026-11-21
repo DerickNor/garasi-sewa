@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Enums\GarageStatus;
 use App\Enums\GarageType;
+use App\Enums\PaymentStatus;
 use App\Enums\RentalType;
 use App\Enums\VehicleType;
 use App\Models\Garage;
@@ -393,6 +394,109 @@ class RentalServiceTest extends TestCase
             ->between('2026-11-25', '2026-11-28')->create();
 
         $this->expectRejected(fn () => $this->service->previewExtension($rental, Carbon::parse('2026-11-27')));
+    }
+
+    /** TC-081: sewa baru menunggu verifikasi pembayaran oleh admin (BR-12.1). */
+    public function test_tc081_new_rental_waits_for_payment_verification(): void
+    {
+        $rental = $this->service->createRental($this->renter, $this->input($this->carGarage()), $this->proof());
+
+        $this->assertSame(PaymentStatus::PENDING, $rental->payment_status);
+        $this->assertNull($rental->payment_verified_at);
+        $this->assertNull($rental->payment_verified_by);
+    }
+
+    /** TC-082: admin menerima pembayaran, waktu dan admin pemeriksa dicatat (BR-12.2). */
+    public function test_tc082_approve_payment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $rental = Rental::factory()->pendingPayment()->for($this->carGarage())->create();
+
+        $this->service->approvePayment($rental, $admin);
+
+        $rental->refresh();
+        $this->assertSame(PaymentStatus::APPROVED, $rental->payment_status);
+        $this->assertTrue($rental->payment_verified_at->equalTo(now()));
+        $this->assertSame($admin->id, $rental->payment_verified_by);
+    }
+
+    /** TC-083: pembayaran ditolak melepas garasi bila tidak ada sewa lain yang belum berakhir (BR-12.4). */
+    public function test_tc083_reject_payment_releases_garage(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $garage = Garage::factory()->ofType(GarageType::CAR)->used()->create(['code' => 'C901']);
+        $rental = Rental::factory()->pendingPayment()->for($garage)->create();
+
+        $this->service->rejectPayment($rental, $admin);
+
+        $this->assertSame(PaymentStatus::REJECTED, $rental->refresh()->payment_status);
+        $this->assertSame($admin->id, $rental->payment_verified_by);
+        $this->assertSame(GarageStatus::AVAILABLE, $garage->refresh()->status);
+    }
+
+    /** Garasi tetap used bila masih ada sewa lain yang belum berakhir. */
+    public function test_reject_payment_keeps_garage_used_when_other_rental_exists(): void
+    {
+        $garage = Garage::factory()->ofType(GarageType::CAR)->used()->create(['code' => 'C901']);
+        Rental::factory()->for($garage)->between('2026-11-21', '2026-11-24')->create();
+        $pending = Rental::factory()->pendingPayment()->for($garage)->between('2026-11-28', '2026-11-30')->create();
+
+        $this->service->rejectPayment($pending, User::factory()->admin()->create());
+
+        $this->assertSame(GarageStatus::USED, $garage->refresh()->status);
+    }
+
+    /** TC-084: sewa yang sudah diproses tidak dapat diproses lagi (BR-12.2). */
+    public function test_tc084_processed_payment_cannot_be_processed_again(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $approved = Rental::factory()->for($this->carGarage('C901'))->create();
+        $rejected = Rental::factory()->rejectedPayment()->for($this->carGarage('C902'))->create();
+
+        $this->expectRejected(fn () => $this->service->approvePayment($approved, $admin));
+        $this->expectRejected(fn () => $this->service->rejectPayment($approved, $admin));
+        $this->expectRejected(fn () => $this->service->approvePayment($rejected, $admin));
+        $this->assertSame(PaymentStatus::APPROVED, $approved->refresh()->payment_status);
+        $this->assertSame(PaymentStatus::REJECTED, $rejected->refresh()->payment_status);
+    }
+
+    /** TC-085: sewa yang menunggu verifikasi tetap menahan garasi dan plat kendaraan (BR-12.3). */
+    public function test_tc085_pending_rental_holds_garage_and_plate(): void
+    {
+        $garage = $this->carGarage('C901');
+        $vehicle = Vehicle::factory()->create(['plate_number' => 'L 1234 AB']);
+        Rental::factory()->pendingPayment()->for($garage)->for($vehicle)->for($vehicle->user)
+            ->between('2026-11-21', '2026-11-24')->create();
+
+        $this->expectRejected(fn () => $this->service->createRental(
+            $this->renter, $this->input($garage, ['plate_number' => 'L 9999 ZZ']), $this->proof()));
+        $this->expectRejected(fn () => $this->service->createRental(
+            $this->renter, $this->input($this->carGarage('C902')), $this->proof()));
+    }
+
+    /** TC-086: sewa yang pembayarannya ditolak tidak lagi menahan garasi dan plat (BR-12.4). */
+    public function test_tc086_rejected_rental_frees_garage_and_plate(): void
+    {
+        $garage = $this->carGarage('C901');
+        $vehicle = Vehicle::factory()->create(['plate_number' => 'L 1234 AB']);
+        Rental::factory()->rejectedPayment()->for($garage)->for($vehicle)->for($vehicle->user)
+            ->between('2026-11-21', '2026-11-24')->create();
+
+        $rental = $this->service->createRental($this->renter, $this->input($garage), $this->proof());
+
+        $this->assertSame('C901', $rental->garage->code);
+        $this->assertSame('L 1234 AB', $rental->vehicle->plate_number);
+    }
+
+    /** TC-087: hanya sewa yang pembayarannya diterima yang bisa diperpanjang (BR-12.5). */
+    public function test_tc087_only_approved_rentals_can_be_extended(): void
+    {
+        $approved = Rental::factory()->for($this->carGarage('C901'))->between('2026-11-18', '2026-11-25')->create();
+        $pending = Rental::factory()->pendingPayment()->for($this->carGarage('C902'))->between('2026-11-18', '2026-11-25')->create();
+        Rental::factory()->rejectedPayment()->for($this->carGarage('C903'))->between('2026-11-18', '2026-11-25')->create();
+
+        $this->assertSame([$approved->id], $this->service->activeRentals(today())->pluck('id')->all());
+        $this->expectRejected(fn () => $this->service->previewExtension($pending, Carbon::parse('2026-11-27')));
     }
 
     private function expectRejected(callable $action): void

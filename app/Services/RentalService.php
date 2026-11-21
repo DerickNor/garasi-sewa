@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\GarageStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\RentalType;
 use App\Enums\VehicleType;
 use App\Models\Garage;
@@ -22,7 +23,8 @@ use InvalidArgumentException;
 use Throwable;
 
 /**
- * Penyimpanan sewa baru (REQ-RENT-06, REQ-RENT-08, BR-06, BR-08, BR-10) dan perpanjangan sewa (REQ-EXT, BR-07).
+ * Penyimpanan sewa baru (REQ-RENT-06, REQ-RENT-08, BR-06, BR-08, BR-10), verifikasi pembayaran (BR-12),
+ * dan perpanjangan sewa (REQ-EXT, BR-07).
  *
  * Data masukan berupa array hasil validasi form dengan kunci: vehicle_type, plate_number, brand, model,
  * battery_capacity_kwh, battery_start_kwh, rental_type, days, start_date, garage_id.
@@ -56,6 +58,7 @@ class RentalService
 
     /**
      * Simpan sewa baru dalam satu transaksi: kendaraan, sewa dengan salinan harga, dan status garasi `used`.
+     * Sewa disimpan dengan status pembayaran `pending` sampai admin memeriksa bukti pelunasan (BR-12.1).
      *
      * Biaya selalu dihitung ulang di server. Garasi dikunci selama transaksi agar dua penyewa tidak
      * mendapat garasi yang sama. Bila gagal, file bukti yang sudah tersimpan ikut dihapus.
@@ -78,13 +81,50 @@ class RentalService
     }
 
     /**
-     * Sewa yang belum berakhir pada $today (sedang berjalan atau akan datang), urut tanggal selesai (REQ-EXT-01).
+     * Sewa yang menunggu verifikasi pembayaran, yang paling lama di atas (REQ-PAY-01).
+     *
+     * @return Collection<int, Rental>
+     */
+    public function pendingPayments(): Collection
+    {
+        return Rental::with(['garage', 'user', 'vehicle'])
+            ->where('payment_status', PaymentStatus::PENDING)
+            ->oldest()
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Terima pembayaran sewa: sewa mulai berlangsung (BR-12.2, BR-12.5).
+     *
+     * @throws InvalidArgumentException bila sewa sudah pernah diproses
+     */
+    public function approvePayment(Rental $rental, User $admin): Rental
+    {
+        return $this->verifyPayment($rental, $admin, PaymentStatus::APPROVED);
+    }
+
+    /**
+     * Tolak pembayaran sewa: sewa batal dan garasi dilepas bila tidak ada sewa lain yang belum berakhir
+     * (BR-12.2, BR-12.4).
+     *
+     * @throws InvalidArgumentException bila sewa sudah pernah diproses
+     */
+    public function rejectPayment(Rental $rental, User $admin): Rental
+    {
+        return $this->verifyPayment($rental, $admin, PaymentStatus::REJECTED);
+    }
+
+    /**
+     * Sewa berlangsung yang belum berakhir pada $today (sedang berjalan atau akan datang), urut tanggal
+     * selesai (REQ-EXT-01). Hanya sewa yang pembayarannya diterima (BR-12.5).
      *
      * @return Collection<int, Rental>
      */
     public function activeRentals(CarbonInterface $today): Collection
     {
         return Rental::with(['garage', 'user', 'vehicle'])
+            ->paymentApproved()
             ->whereDate('end_date', '>', $today->toDateString())
             ->orderBy('end_date')
             ->orderBy('id')
@@ -103,7 +143,11 @@ class RentalService
         $newEnd = CarbonImmutable::instance($newEnd)->startOfDay();
         $oldEnd = CarbonImmutable::instance($rental->end_date)->startOfDay();
 
-        // 1. Hanya sewa yang belum berakhir yang bisa diperpanjang (BR-07.1).
+        // 1. Hanya sewa yang pembayarannya diterima (BR-12.5) dan belum berakhir (BR-07.1) yang bisa diperpanjang.
+        if ($rental->payment_status !== PaymentStatus::APPROVED) {
+            throw new InvalidArgumentException('Pembayaran sewa ini belum diterima admin sehingga belum dapat diperpanjang.');
+        }
+
         if ($oldEnd->lte(today())) {
             throw new InvalidArgumentException('Sewa ini sudah berakhir sehingga tidak dapat diperpanjang.');
         }
@@ -203,7 +247,7 @@ class RentalService
         //    perubahan harga garasi di kemudian hari tidak mengubah tagihan sewa ini.
         $vehicle = $this->saveVehicle($renter, $vehicleType, $plate, $data);
 
-        $rental = $renter->rentals()->create([
+        $rental = $renter->rentals()->make([
             'garage_id' => $garage->id,
             'vehicle_id' => $vehicle->id,
             'rental_type' => RentalType::from($data['rental_type']),
@@ -219,10 +263,52 @@ class RentalService
             'payment_proof_path' => $proofPath,
         ]);
 
-        // 6. Tandai garasi sedang disewa (BR-06.2).
+        // 6. Sewa menunggu admin memeriksa bukti pelunasan (BR-12.1). Selama menunggu, garasi dan plat
+        //    tetap tertahan agar tidak disewa orang lain (BR-12.3).
+        $rental->payment_status = PaymentStatus::PENDING;
+        $rental->save();
+
+        // 7. Tandai garasi sedang disewa (BR-06.2).
         $garage->update(['status' => GarageStatus::USED]);
 
         return $rental;
+    }
+
+    /**
+     * Simpan hasil pemeriksaan bukti pembayaran. Sewa dikunci agar dua admin tidak memproses sewa yang sama.
+     *
+     * @throws InvalidArgumentException bila sewa sudah pernah diproses
+     */
+    private function verifyPayment(Rental $rental, User $admin, PaymentStatus $result): Rental
+    {
+        return DB::transaction(function () use ($rental, $admin, $result) {
+            $rental = Rental::whereKey($rental->id)->lockForUpdate()->firstOrFail();
+
+            // 1. Hanya sewa yang masih menunggu verifikasi yang boleh diproses (BR-12.2).
+            if ($rental->payment_status !== PaymentStatus::PENDING) {
+                throw new InvalidArgumentException('Pembayaran sewa ini sudah diproses sebelumnya.');
+            }
+
+            // 2. Catat hasil, waktu, dan admin pemeriksa.
+            $rental->payment_status = $result;
+            $rental->payment_verified_at = now();
+            $rental->payment_verified_by = $admin->id;
+            $rental->save();
+
+            // 3. Pembayaran ditolak: sewa batal. Lepas garasi bila tidak ada sewa lain yang belum berakhir (BR-12.4).
+            if ($result === PaymentStatus::REJECTED) {
+                $stillHeld = Rental::where('garage_id', $rental->garage_id)
+                    ->notRejected()
+                    ->whereDate('end_date', '>', today()->toDateString())
+                    ->exists();
+
+                if (! $stillHeld) {
+                    $rental->garage()->update(['status' => GarageStatus::AVAILABLE]);
+                }
+            }
+
+            return $rental;
+        });
     }
 
     /**
