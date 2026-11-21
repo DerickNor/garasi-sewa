@@ -36,6 +36,15 @@ php artisan serve
 
 Buka `http://localhost:8000`.
 
+Status garasi yang masa sewanya habis dikembalikan otomatis setiap hari pukul 00:05 oleh penjadwal Laravel.
+Untuk menjalankannya di lokal:
+
+```bash
+php artisan schedule:work
+```
+
+Perintah yang sama juga bisa dijalankan manual: `php artisan garages:release-expired`.
+
 ## Menjalankan test
 
 ```bash
