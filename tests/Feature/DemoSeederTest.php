@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\GarageStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Enums\VerificationStatus;
 use App\Models\Garage;
@@ -62,6 +63,7 @@ class DemoSeederTest extends TestCase
         $this->assertTrue(Rental::whereDate('start_date', '>', $today)->exists(), 'ada sewa yang akan datang');
         $this->assertTrue(Rental::where('charging_fee', '>', 0)->exists(), 'ada sewa mobil listrik dengan biaya isi');
         $this->assertSame(1, RentalExtension::count());
+        $this->assertSame(1, Rental::where('payment_status', PaymentStatus::PENDING)->count(), 'ada sewa yang menunggu verifikasi pembayaran');
 
         foreach (Rental::all() as $rental) {
             Storage::disk('public')->assertExists($rental->payment_proof_path);

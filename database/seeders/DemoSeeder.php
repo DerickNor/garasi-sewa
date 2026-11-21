@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\GarageStatus;
 use App\Enums\GarageType;
+use App\Enums\PaymentStatus;
 use App\Enums\RentalType;
 use App\Enums\UserRole;
 use App\Enums\VehicleType;
@@ -20,7 +21,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Data contoh untuk demo presentasi. Tanggal dibuat relatif terhadap hari ini sehingga selalu ada
- * sewa yang sudah selesai, sedang berjalan, akan datang, dan satu sewa yang sudah diperpanjang.
+ * sewa yang sudah selesai, sedang berjalan, akan datang, satu sewa yang sudah diperpanjang, dan satu sewa
+ * yang pembayarannya masih menunggu verifikasi admin.
  *
  * Jalankan: php artisan migrate:fresh --seed
  */
@@ -28,6 +30,8 @@ class DemoSeeder extends Seeder
 {
     /** Gambar PNG 1×1 piksel sebagai bukti pembayaran contoh. */
     private const PLACEHOLDER_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    private User $admin;
 
     public function __construct(
         private readonly GarageService $garages,
@@ -40,7 +44,7 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         $today = CarbonImmutable::today();
-        $admin = User::where('role', UserRole::ADMIN)->firstOrFail();
+        $admin = $this->admin = User::where('role', UserRole::ADMIN)->firstOrFail();
 
         $budi = $this->renter('Budi Santoso', 'budi@garasi.test', '3578010101900001', '081234500001', VerificationStatus::APPROVED);
         $sari = $this->renter('Sari Wulandari', 'sari@garasi.test', '3578010101900002', '081234500002', VerificationStatus::APPROVED);
@@ -73,6 +77,10 @@ class DemoSeeder extends Seeder
         // Sewa yang akan datang.
         $this->rental($sari, $car[3], $avanza + ['plate_number' => 'W 1357 SW'], RentalType::DAILY, 2, $today->addDays(5));
 
+        // Sewa akan datang yang bukti pembayarannya belum diperiksa admin (BR-12.1).
+        $ertiga = ['type' => VehicleType::CAR, 'plate_number' => 'L 2468 BS', 'brand' => 'Suzuki', 'model' => 'Ertiga'];
+        $this->rental($budi, $car[4], $ertiga, RentalType::DAILY, 2, $today->addDays(2), payment: PaymentStatus::PENDING);
+
         // Satu sewa yang sudah diperpanjang admin 2 hari.
         $this->extend($sariCar, $admin, 2);
 
@@ -102,6 +110,7 @@ class DemoSeeder extends Seeder
         ?int $days,
         CarbonImmutable $start,
         ?float $batteryStart = null,
+        PaymentStatus $payment = PaymentStatus::APPROVED,
     ): Rental {
         $vehicleType = $vehicle['type'];
         $price = $this->pricing->calculateNewRental(
@@ -120,7 +129,7 @@ class DemoSeeder extends Seeder
             ? $renter->vehicles()->create($vehicle)
             : $renter->vehicles()->firstOrCreate(['plate_number' => $vehicle['plate_number']], $vehicle);
 
-        return $renter->rentals()->create([
+        $rental = $renter->rentals()->make([
             'garage_id' => $garage->id,
             'vehicle_id' => $vehicleModel->id,
             'rental_type' => $type,
@@ -135,6 +144,17 @@ class DemoSeeder extends Seeder
             'total_cost' => $price->totalCost,
             'payment_proof_path' => $this->proof(),
         ]);
+
+        // Status pembayaran tidak fillable; sewa contoh yang sudah lunas dicatat diterima admin.
+        $rental->payment_status = $payment;
+        if ($payment === PaymentStatus::APPROVED) {
+            // Diverifikasi sehari sebelum sewa mulai, atau sekarang bila sewanya belum dimulai.
+            $rental->payment_verified_at = $start->subDay()->setTime(9, 0)->min(now());
+            $rental->payment_verified_by = $this->admin->id;
+        }
+        $rental->save();
+
+        return $rental;
     }
 
     private function extend(Rental $rental, User $admin, int $extraDays): void
