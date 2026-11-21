@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\GarageType;
+use App\Enums\PaymentStatus;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\Builder;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Setiap baris berisi jumlah sewa dan pendapatan. Sewa dikelompokkan berdasarkan tanggal mulai, dan
  * pendapatan = total_cost (biaya sewa + isi listrik) + seluruh biaya perpanjangan sewa itu (ASM-09).
+ * Hanya sewa yang pembayarannya sudah diterima admin yang dihitung (BR-12.5).
  *
  * Bentuk baris: ['key' => mixed, 'label' => string, 'detail' => ?string, 'rentals' => int, 'revenue' => float].
  */
@@ -123,6 +125,7 @@ class ReportService
         // Pendapatan satu sewa = total_cost (sewa + isi listrik) + total perpanjangannya (ASM-09).
         return DB::table('rentals')
             ->leftJoinSub($extensions, 'extensions', 'extensions.rental_id', '=', 'rentals.id')
+            ->where('rentals.payment_status', PaymentStatus::APPROVED->value)
             ->selectRaw('COUNT(*) as rentals')
             ->selectRaw('SUM(rentals.total_cost + COALESCE(extensions.extension_total, 0)) as revenue');
     }

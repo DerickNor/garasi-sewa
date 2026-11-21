@@ -147,6 +147,20 @@ class ReportServiceTest extends TestCase
         $this->assertSame(['Budi'], $filtered->pluck('label')->all());
     }
 
+    /** TC-088: sewa yang pembayarannya belum diterima atau ditolak tidak dihitung di laporan (BR-12.5). */
+    public function test_tc088_only_approved_payments_are_reported(): void
+    {
+        $this->rental('2026-11-21', 300000);
+        Rental::factory()->pendingPayment()->for(Garage::factory())->between('2026-11-22', '2026-11-24')->create(['total_cost' => 999999]);
+        Rental::factory()->rejectedPayment()->for(Garage::factory())->between('2026-11-22', '2026-11-24')->create(['total_cost' => 888888]);
+
+        $november = $this->reports->monthlyInYear(2026)[10];
+
+        $this->assertSame(1, $november['rentals']);
+        $this->assertEquals(300000, $november['revenue']);
+        $this->assertSame([1, 300000.0], $this->totals($this->reports->byRenter(null, null)));
+    }
+
     /** TC-078: pendapatan = total_cost (sudah termasuk isi listrik) + seluruh perpanjangan. */
     public function test_tc078_revenue_includes_extensions(): void
     {
