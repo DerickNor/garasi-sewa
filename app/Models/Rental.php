@@ -124,7 +124,9 @@ class Rental extends Model
      */
     public function totalWithExtensions(): string
     {
-        $extensions = (string) $this->extensions()->sum('extra_cost');
+        $extensions = (string) ($this->relationLoaded('extensions')
+            ? $this->extensions->sum('extra_cost')
+            : $this->extensions()->sum('extra_cost'));
 
         return bcadd((string) $this->total_cost, $extensions, 2);
     }
