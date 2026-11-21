@@ -35,6 +35,9 @@
                         <x-nav-link :href="route('admin.renters.index')" :active="request()->routeIs('admin.renters.*')">
                             Verifikasi Pendaftar
                         </x-nav-link>
+                        <x-nav-link :href="route('admin.reports.index')" :active="request()->routeIs('admin.reports.*')">
+                            Laporan
+                        </x-nav-link>
                     @endif
                 </div>
             </div>
@@ -106,6 +109,9 @@
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.renters.index')" :active="request()->routeIs('admin.renters.*')">
                     Verifikasi Pendaftar
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.reports.index')" :active="request()->routeIs('admin.reports.*')">
+                    Laporan
                 </x-responsive-nav-link>
             @endif
         </div>
