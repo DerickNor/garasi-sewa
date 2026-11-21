@@ -42,6 +42,19 @@ enum VehicleType: string
     }
 
     /**
+     * Tipe garasi yang otomatis dipilih di form sewa. Mobil listrik diarahkan ke garasi mobil listrik
+     * (agar baterai diisi), tetapi penyewa tetap boleh menggantinya ke garasi mobil.
+     */
+    public function defaultGarageType(): GarageType
+    {
+        return match ($this) {
+            self::BICYCLE, self::MOTORCYCLE => GarageType::BICYCLE,
+            self::CAR => GarageType::CAR,
+            self::ELECTRIC_CAR => GarageType::ELECTRIC_CAR,
+        };
+    }
+
+    /**
      * Tipe garasi yang boleh dipilih untuk kendaraan ini, diturunkan dari GarageType::acceptsVehicle.
      *
      * @return list<GarageType>

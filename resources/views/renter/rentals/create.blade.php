@@ -36,10 +36,9 @@
                     this.refreshGarages();
                 },
 
+                // Tipe garasi langsung disesuaikan dengan kendaraan yang dipilih.
                 onVehicleChange() {
-                    if (!this.allowedGarageTypes.includes(this.garageType)) {
-                        this.garageType = this.allowedGarageTypes.length === 1 ? this.allowedGarageTypes[0] : '';
-                    }
+                    this.garageType = config.defaultGarageTypes[this.vehicleType] ?? '';
                     this.refreshGarages();
                 },
 
@@ -120,6 +119,7 @@
                       'old' => old(),
                       'minStartDate' => $minStartDate,
                       'allowedGarageTypes' => $allowedGarageTypes,
+                      'defaultGarageTypes' => $defaultGarageTypes,
                       'bicycle' => VehicleType::BICYCLE->value,
                       'electricCar' => VehicleType::ELECTRIC_CAR->value,
                       'daily' => RentalType::DAILY->value,

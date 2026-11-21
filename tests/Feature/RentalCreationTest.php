@@ -196,6 +196,7 @@ class RentalCreationTest extends TestCase
         $this->actingAs($this->renter)
             ->get(route('renter.rentals.create'))
             ->assertOk()
+            ->assertViewHas('defaultGarageTypes', fn ($types) => $types['electric_car'] === 'electric_car' && $types['motorcycle'] === 'bicycle')
             ->assertSee('Sewa Garasi Baru')
             ->assertSee('name="payment_proof"', false);
     }

@@ -53,6 +53,9 @@ class RentalController extends Controller
             'allowedGarageTypes' => collect(VehicleType::cases())->mapWithKeys(fn (VehicleType $type) => [
                 $type->value => array_map(fn (GarageType $garage) => $garage->value, $type->allowedGarageTypes()),
             ]),
+            'defaultGarageTypes' => collect(VehicleType::cases())->mapWithKeys(fn (VehicleType $type) => [
+                $type->value => $type->defaultGarageType()->value,
+            ]),
             'minStartDate' => $today->toDateString(),
             'maxStartDate' => $today->copy()->addDays(RentalService::MAX_ADVANCE_DAYS)->toDateString(),
         ]);

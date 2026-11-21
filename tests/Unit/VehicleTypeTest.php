@@ -45,6 +45,19 @@ class VehicleTypeTest extends TestCase
         $this->assertSame('Mobil Listrik', VehicleType::ELECTRIC_CAR->label());
     }
 
+    /** Tipe garasi yang otomatis dipilih di form: mobil listrik ke garasi mobil listrik. */
+    public function test_default_garage_type(): void
+    {
+        $this->assertSame(GarageType::BICYCLE, VehicleType::BICYCLE->defaultGarageType());
+        $this->assertSame(GarageType::BICYCLE, VehicleType::MOTORCYCLE->defaultGarageType());
+        $this->assertSame(GarageType::CAR, VehicleType::CAR->defaultGarageType());
+        $this->assertSame(GarageType::ELECTRIC_CAR, VehicleType::ELECTRIC_CAR->defaultGarageType());
+
+        foreach (VehicleType::cases() as $vehicle) {
+            $this->assertContains($vehicle->defaultGarageType(), $vehicle->allowedGarageTypes());
+        }
+    }
+
     /** TC-023: nomor plat wajib kecuali sepeda. */
     public function test_requires_plate_except_bicycle(): void
     {
