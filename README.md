@@ -50,7 +50,7 @@ Tempat aturan bisnis utama:
 
 | Aturan | Lokasi |
 |---|---|
-| Tipe garasi otomatis dari kendaraan: sepeda/motor di garasi sepeda, mobil di garasi mobil, mobil listrik di garasi mobil listrik | `VehicleType::defaultGarageType()`, `StoreRentalRequest` |
+| Tipe garasi dipilih sesuai kendaraan: sepeda/motor di garasi sepeda, mobil di garasi mobil, mobil listrik di garasi mobil atau mobil listrik | `GarageType::acceptsVehicle()`, `VehicleType::allowedGarageTypes()`, `StoreRentalRequest` |
 | Harga bulanan 25 × harian, durasi bulanan mengikuti jumlah hari bulan mulai | `RentalPricingService::calculateNewRental()` |
 | Biaya isi listrik hingga penuh di garasi mobil listrik | `RentalPricingService::chargingFee()` |
 | Kurang bayar perpanjangan (bulan penuh + sisa hari, selalu positif) | `RentalPricingService::calculateExtension()` |
