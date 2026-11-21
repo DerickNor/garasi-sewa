@@ -29,6 +29,7 @@ class RentalHistoryTest extends TestCase
             'old_end_date' => '2027-01-05', 'new_end_date' => '2027-01-07', 'extra_months' => 0, 'extra_days' => 2,
             'extra_cost' => 200000, 'payment_proof_path' => 'proofs/x.png',
         ]);
+        $rental->update(['end_date' => '2027-01-07']);
 
         $other = Rental::factory()->for(Garage::factory()->create(['code' => 'C902']))->create();
 
@@ -38,10 +39,11 @@ class RentalHistoryTest extends TestCase
             ->assertSee('C901')
             ->assertSee('L 1234 AB')
             ->assertSee('2 Jan 2027')
-            ->assertSee('4 Jan 2027')
-            ->assertSee('5 Jan 2027')
+            ->assertSee('6 Jan 2027')
+            ->assertSee('7 Jan 2027')
             ->assertSee('Rp300.000')
             ->assertSee('Rp500.000')
+            ->assertSee('Harian, 5 hari')
             ->assertDontSee($other->garage->code);
     }
 

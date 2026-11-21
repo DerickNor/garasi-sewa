@@ -52,7 +52,7 @@
                                     <td class="px-4 py-3">
                                         <div>{{ $rental->start_date->translatedFormat('j M Y') }} – {{ $rental->end_date->copy()->subDay()->translatedFormat('j M Y') }}</div>
                                         <div class="text-xs text-gray-500">
-                                            {{ $rental->rental_type === RentalType::DAILY ? 'Harian' : 'Bulanan' }}, {{ $rental->duration_days }} hari ·
+                                            {{ $rental->rental_type === RentalType::DAILY ? 'Harian' : 'Bulanan' }}, {{ (int) $rental->start_date->diffInDays($rental->end_date) }} hari ·
                                             dikembalikan {{ $rental->end_date->translatedFormat('j M Y') }}
                                         </div>
                                     </td>
