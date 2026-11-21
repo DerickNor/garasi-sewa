@@ -113,11 +113,14 @@ class ReportService
      */
     private function baseQuery(): Builder
     {
+        // Subquery: total biaya perpanjangan per sewa, mis. sewa #2 -> Rp450.000.
         $extensions = DB::table('rental_extensions')
             ->select('rental_id')
             ->selectRaw('SUM(extra_cost) as extension_total')
             ->groupBy('rental_id');
 
+        // LEFT JOIN agar sewa tanpa perpanjangan tetap ikut (perpanjangannya dianggap 0 lewat COALESCE).
+        // Pendapatan satu sewa = total_cost (sewa + isi listrik) + total perpanjangannya (ASM-09).
         return DB::table('rentals')
             ->leftJoinSub($extensions, 'extensions', 'extensions.rental_id', '=', 'rentals.id')
             ->selectRaw('COUNT(*) as rentals')

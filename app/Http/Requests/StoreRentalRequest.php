@@ -101,6 +101,7 @@ class StoreRentalRequest extends FormRequest
             function (Validator $validator): void {
                 $errors = $validator->errors();
 
+                // Kendaraan harus cocok dengan tipe garasi, dan garasi yang dipilih harus bertipe sama.
                 if (! $errors->hasAny(['vehicle_type', 'garage_type'])) {
                     $vehicle = VehicleType::from($this->input('vehicle_type'));
                     $garage = GarageType::from($this->input('garage_type'));
@@ -113,6 +114,7 @@ class StoreRentalRequest extends FormRequest
                     }
                 }
 
+                // Batas hari sewa harian bergantung pada bulan tanggal mulai, mis. mulai November maks. 29 hari.
                 if ($this->input('rental_type') === RentalType::DAILY->value && ! $errors->hasAny(['days', 'start_date'])) {
                     $maxDays = app(RentalPricingService::class)->maxDailyDays(CarbonImmutable::parse($this->input('start_date')));
 

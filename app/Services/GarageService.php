@@ -35,8 +35,11 @@ class GarageService
         $this->validateInput($type, $quantity, $dailyPrice, $kwhPrice);
 
         return DB::transaction(function () use ($type, $quantity, $dailyPrice, $kwhPrice) {
+            // 1. Kunci baris penghitung tipe ini. Admin lain yang menyimpan bersamaan harus menunggu
+            //    sampai transaksi ini selesai, sehingga tidak ada dua garasi dengan kode yang sama.
             $sequence = GarageSequence::whereKey($type->value)->lockForUpdate()->firstOrFail();
 
+            // 2. Kode maksimal 999 per tipe; bila tidak cukup, seluruh pembuatan dibatalkan (BR-05.3).
             $remaining = GarageSequence::MAX_NUMBER - $sequence->last_number;
             if ($quantity > $remaining) {
                 throw new InvalidArgumentException(
@@ -44,9 +47,11 @@ class GarageService
                 );
             }
 
+            // 3. Kode lanjutan dari nomor terakhir, mis. last_number 9 + 3 garasi mobil -> C010, C011, C012.
             $codes = $this->codesAfter($type, $sequence->last_number, $quantity);
             $now = now();
 
+            // 4. Simpan semua garasi sekaligus; harga yang diinput admin disimpan di setiap garasi.
             Garage::insert(array_map(fn (string $code): array => [
                 'code' => $code,
                 'garage_type' => $type->value,
@@ -57,6 +62,7 @@ class GarageService
                 'updated_at' => $now,
             ], $codes));
 
+            // 5. Catat nomor terakhir yang terpakai untuk pembuatan berikutnya.
             $sequence->last_number += $quantity;
             $sequence->save();
 

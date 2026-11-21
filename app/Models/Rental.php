@@ -89,6 +89,12 @@ class Rental extends Model
      *
      * Dua rentang bertabrakan bila sewa.start_date < $end dan sewa.end_date > $start.
      *
+     * Contoh untuk permintaan 2–5 Jan (dipakai 2, 3, 4 Jan):
+     *   sewa 30 Des–3 Jan   -> bertabrakan (sama-sama memakai 2 Jan)
+     *   sewa 3 Jan–10 Jan   -> bertabrakan (sama-sama memakai 3 dan 4 Jan)
+     *   sewa 28 Des–2 Jan   -> tidak bertabrakan (dikembalikan tepat 2 Jan)
+     *   sewa 5 Jan–8 Jan    -> tidak bertabrakan (mulai tepat saat garasi dikembalikan)
+     *
      * @param  Builder<Rental>  $query
      */
     public function scopeOverlapping(Builder $query, CarbonInterface $start, CarbonInterface $end): void

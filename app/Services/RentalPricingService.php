@@ -91,20 +91,27 @@ class RentalPricingService
         ?float $batteryStartKwh = null,
         ?float $kwhPrice = null,
     ): PriceBreakdown {
+        // 1. Kendaraan harus cocok dengan tipe garasi (BR-01), mis. mobil tidak boleh di garasi sepeda.
         if (! $garageType->acceptsVehicle($vehicleType)) {
             throw new InvalidArgumentException('Tipe garasi tidak sesuai dengan tipe kendaraan.');
         }
 
+        // 2. Lama sewa: harian = jumlah hari input; bulanan = jumlah hari bulan tanggal mulai (28/29/30/31).
         $start = CarbonImmutable::instance($start)->startOfDay();
         $duration = $this->durationDays($type, $days, $start);
+
+        // 3. Biaya sewa: harian = hari x harga harian; bulanan = 25 x harga harian (tidak bergantung panjang bulan).
         $rentalFee = $type === RentalType::MONTHLY
             ? $this->monthlyPrice($dailyPrice)
             : $this->money($duration * $dailyPrice);
 
+        // 4. Biaya isi listrik hanya untuk mobil listrik, dan hanya ditagih bila parkir di garasi mobil listrik.
         $chargingFee = $vehicleType->isElectric()
             ? $this->chargingFee($garageType, $batteryCapacityKwh, $batteryStartKwh, $kwhPrice)
             : 0.0;
 
+        // 5. Tanggal selesai = mulai + durasi (eksklusif): sewa 3 hari mulai 2 Jan selesai 5 Jan,
+        //    garasi dipakai 2, 3, 4 Jan dan sudah bisa disewa orang lain pada 5 Jan (ASM-01).
         return new PriceBreakdown(
             durationDays: $duration,
             endDate: $start->addDays($duration),
@@ -131,6 +138,12 @@ class RentalPricingService
             throw new InvalidArgumentException('Tanggal selesai baru harus setelah tanggal selesai lama.');
         }
 
+        // Maju satu bulan penuh selama belum melewati tanggal selesai baru. Panjang "satu bulan" mengikuti
+        // kalender dari posisi saat ini, sama seperti sewa bulanan baru.
+        // Contoh 21 Des 2026 -> 24 Jan 2027:
+        //   21 Des + 31 hari (Desember) = 21 Jan <= 24 Jan  -> 1 bulan, posisi pindah ke 21 Jan
+        //   21 Jan + 31 hari (Januari)  = 21 Feb >  24 Jan  -> berhenti
+        //   sisa 21 Jan -> 24 Jan = 3 hari; biaya = 1 x (25 x harian) + 3 x harian
         $months = 0;
 
         while ($cursor->addDays($this->daysInMonth($cursor))->lte($target)) {
@@ -138,6 +151,7 @@ class RentalPricingService
             $months++;
         }
 
+        // Sisa hari setelah bulan penuh terakhir dihargai per hari.
         $days = (int) $cursor->diffInDays($target);
         $cost = $this->money($months * $this->monthlyPrice($dailyPrice) + $days * $dailyPrice);
 
@@ -159,6 +173,7 @@ class RentalPricingService
             throw new InvalidArgumentException('Kondisi baterai awal harus antara 0 dan kapasitas baterai.');
         }
 
+        // Mobil listrik di garasi mobil biasa (C): baterai tetap dicatat, tetapi tidak diisi sehingga gratis.
         if ($garageType !== GarageType::ELECTRIC_CAR) {
             return 0.0;
         }
@@ -167,6 +182,7 @@ class RentalPricingService
             throw new InvalidArgumentException('Harga isi listrik per kWh garasi mobil listrik belum diisi.');
         }
 
+        // Diisi hingga penuh: kekurangan kWh x harga per kWh. Contoh (60 - 22,5) x Rp2.500 = Rp93.750.
         return $this->money(($capacity - $battery) * $kwhPrice);
     }
 

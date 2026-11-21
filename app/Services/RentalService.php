@@ -103,12 +103,16 @@ class RentalService
         $newEnd = CarbonImmutable::instance($newEnd)->startOfDay();
         $oldEnd = CarbonImmutable::instance($rental->end_date)->startOfDay();
 
+        // 1. Hanya sewa yang belum berakhir yang bisa diperpanjang (BR-07.1).
         if ($oldEnd->lte(today())) {
             throw new InvalidArgumentException('Sewa ini sudah berakhir sehingga tidak dapat diperpanjang.');
         }
 
+        // 2. Hitung kurang bayar dengan harga harian salinan saat sewa dibuat (BR-08). Tanggal baru
+        //    wajib setelah tanggal lama, sehingga kurang bayar selalu positif.
         $extension = $this->pricing->calculateExtension($oldEnd, $newEnd, (float) $rental->daily_price);
 
+        // 3. Tanggal tambahan [tanggal lama, tanggal baru) tidak boleh dipakai sewa lain di garasi ini (BR-07.7).
         $garageBooked = Rental::where('garage_id', $rental->garage_id)
             ->whereKeyNot($rental->id)
             ->overlapping($oldEnd, $newEnd)
@@ -117,6 +121,7 @@ class RentalService
             throw new InvalidArgumentException("Garasi {$rental->garage->code} sudah disewa orang lain pada tanggal tambahan tersebut.");
         }
 
+        // 4. Kendaraan yang sama juga tidak boleh punya sewa lain pada tanggal tambahan itu (BR-10).
         $vehicleBooked = Rental::where('vehicle_id', $rental->vehicle_id)
             ->whereKeyNot($rental->id)
             ->overlapping($oldEnd, $newEnd)
@@ -139,6 +144,7 @@ class RentalService
 
         try {
             return DB::transaction(function () use ($rental, $newEnd, $admin, $proofPath) {
+                // Kunci garasi dan sewa, lalu periksa ulang semua aturan dengan data terbaru.
                 Garage::whereKey($rental->garage_id)->lockForUpdate()->first();
                 $rental = Rental::whereKey($rental->id)->lockForUpdate()->firstOrFail();
 
@@ -154,6 +160,7 @@ class RentalService
                     'payment_proof_path' => $proofPath,
                 ]);
 
+                // Catatan perpanjangan menyimpan riwayat tanggal lama; tanggal selesai sewa diganti yang baru.
                 $rental->update(['end_date' => $newEnd]);
                 $rental->garage()->update(['status' => GarageStatus::USED]);
 
@@ -171,14 +178,20 @@ class RentalService
      */
     private function storeRental(User $renter, array $data, string $proofPath): Rental
     {
+        // 1. Kunci garasi agar dua penyewa yang menyimpan bersamaan tidak mendapat garasi yang sama.
         $garage = Garage::whereKey($data['garage_id'])->lockForUpdate()->firstOrFail();
+
+        // 2. Hitung ulang biaya di server dari harga garasi; nilai dari browser tidak dipakai (REQ-RENT-06.4).
         $price = $this->calculate($garage, $data);
         $start = CarbonImmutable::parse($data['start_date'])->startOfDay();
 
+        // 3. Cek ulang ketersediaan: bisa saja garasi baru disewa orang lain setelah form dibuka (REQ-RENT-08.2).
         if (! $garage->isAvailableBetween($start, $price->endDate)) {
             throw new InvalidArgumentException("Garasi {$garage->code} sudah disewa pada tanggal tersebut. Silakan pilih garasi lain.");
         }
 
+        // 4. Kendaraan berplat tidak boleh berada di dua garasi pada tanggal yang sama (BR-10).
+        //    Sepeda tidak punya plat sehingga tidak diperiksa.
         $vehicleType = VehicleType::from($data['vehicle_type']);
         $plate = $vehicleType->requiresPlate() ? Vehicle::normalizePlate($data['plate_number'] ?? null) : null;
 
@@ -186,6 +199,8 @@ class RentalService
             throw new InvalidArgumentException("Kendaraan {$plate} sudah memiliki sewa pada tanggal tersebut.");
         }
 
+        // 5. Simpan kendaraan, lalu sewa dengan salinan harga garasi saat ini (BR-08) supaya
+        //    perubahan harga garasi di kemudian hari tidak mengubah tagihan sewa ini.
         $vehicle = $this->saveVehicle($renter, $vehicleType, $plate, $data);
 
         $rental = $renter->rentals()->create([
@@ -204,6 +219,7 @@ class RentalService
             'payment_proof_path' => $proofPath,
         ]);
 
+        // 6. Tandai garasi sedang disewa (BR-06.2).
         $garage->update(['status' => GarageStatus::USED]);
 
         return $rental;
