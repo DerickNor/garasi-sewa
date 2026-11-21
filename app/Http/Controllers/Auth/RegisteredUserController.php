@@ -2,21 +2,23 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\UserRole;
+use App\Enums\VerificationStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/**
+ * Pendaftaran penyewa baru (REQ-AUTH-01).
+ */
 class RegisteredUserController extends Controller
 {
     /**
-     * Display the registration view.
+     * Tampilkan form pendaftaran.
      */
     public function create(): View
     {
@@ -24,28 +26,20 @@ class RegisteredUserController extends Controller
     }
 
     /**
-     * Handle an incoming registration request.
-     *
-     * @throws ValidationException
+     * Simpan penyewa baru berstatus pending, lalu arahkan ke dashboard penyewa.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(RegisterRequest $request): RedirectResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        $user = new User($request->validated());
+        $user->role = UserRole::PENYEWA;
+        $user->verification_status = VerificationStatus::PENDING;
+        $user->save();
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect()->route('renter.dashboard')
+            ->with('status', 'Pendaftaran berhasil. Akun Anda menunggu verifikasi admin.');
     }
 }
