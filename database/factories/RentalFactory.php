@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PaymentStatus;
 use App\Enums\RentalType;
 use App\Models\Garage;
 use App\Models\Rental;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 
 /**
- * Factory sewa untuk test: sewa harian 3 hari mulai hari ini, Rp100.000/hari.
+ * Factory sewa untuk test: sewa harian 3 hari mulai hari ini, Rp100.000/hari, pembayaran sudah diterima.
  * Nilai biaya ditulis langsung; perhitungan sebenarnya ada di RentalPricingService.
  *
  * @extends Factory<Rental>
@@ -38,7 +39,24 @@ class RentalFactory extends Factory
             'charging_fee' => 0,
             'total_cost' => 300000,
             'payment_proof_path' => 'proofs/example.png',
+            'payment_status' => PaymentStatus::APPROVED,
         ];
+    }
+
+    /**
+     * Sewa yang bukti pembayarannya belum diperiksa admin (BR-12.1).
+     */
+    public function pendingPayment(): static
+    {
+        return $this->state(fn (array $attributes) => ['payment_status' => PaymentStatus::PENDING]);
+    }
+
+    /**
+     * Sewa yang pembayarannya ditolak admin (BR-12.4).
+     */
+    public function rejectedPayment(): static
+    {
+        return $this->state(fn (array $attributes) => ['payment_status' => PaymentStatus::REJECTED]);
     }
 
     /**

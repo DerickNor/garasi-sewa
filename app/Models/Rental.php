@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentStatus;
 use App\Enums\RentalType;
 use Carbon\CarbonInterface;
 use Database\Factories\RentalFactory;
@@ -14,6 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Transaksi sewa satu garasi untuk satu kendaraan. Harga disalin saat sewa dibuat (BR-08).
+ *
+ * Kolom payment_status, payment_verified_at, dan payment_verified_by sengaja tidak fillable:
+ * hanya diisi oleh RentalService, bukan dari input form (BR-12).
  */
 #[Fillable([
     'user_id', 'garage_id', 'vehicle_id', 'rental_type', 'duration_days', 'start_date', 'end_date',
@@ -41,6 +45,8 @@ class Rental extends Model
             'rental_fee' => 'decimal:2',
             'charging_fee' => 'decimal:2',
             'total_cost' => 'decimal:2',
+            'payment_status' => PaymentStatus::class,
+            'payment_verified_at' => 'datetime',
         ];
     }
 
@@ -75,6 +81,16 @@ class Rental extends Model
     }
 
     /**
+     * Admin yang memeriksa bukti pembayaran (BR-12.2).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function paymentVerifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'payment_verified_by');
+    }
+
+    /**
      * Riwayat perpanjangan sewa ini.
      *
      * @return HasMany<RentalExtension, $this>
@@ -85,9 +101,31 @@ class Rental extends Model
     }
 
     /**
+     * Batasi query ke sewa yang masih menahan garasi dan plat kendaraan: pembayaran menunggu
+     * verifikasi atau sudah diterima. Sewa yang pembayarannya ditolak dianggap batal (BR-12.3, BR-12.4).
+     *
+     * @param  Builder<Rental>  $query
+     */
+    public function scopeNotRejected(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('payment_status'), '!=', PaymentStatus::REJECTED->value);
+    }
+
+    /**
+     * Batasi query ke sewa yang pembayarannya sudah diterima admin, yaitu sewa yang berlangsung (BR-12.5).
+     *
+     * @param  Builder<Rental>  $query
+     */
+    public function scopePaymentApproved(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('payment_status'), PaymentStatus::APPROVED->value);
+    }
+
+    /**
      * Batasi query ke sewa yang rentangnya bertabrakan dengan [$start, $end) (BR-06.1, ASM-01).
      *
      * Dua rentang bertabrakan bila sewa.start_date < $end dan sewa.end_date > $start.
+     * Sewa yang pembayarannya ditolak tidak dihitung (BR-12.4).
      *
      * Contoh untuk permintaan 2–5 Jan (dipakai 2, 3, 4 Jan):
      *   sewa 30 Des–3 Jan   -> bertabrakan (sama-sama memakai 2 Jan)
@@ -99,8 +137,10 @@ class Rental extends Model
      */
     public function scopeOverlapping(Builder $query, CarbonInterface $start, CarbonInterface $end): void
     {
-        $query->whereDate('start_date', '<', $end->toDateString())
-            ->whereDate('end_date', '>', $start->toDateString());
+        $query->whereDate($query->qualifyColumn('start_date'), '<', $end->toDateString())
+            ->whereDate($query->qualifyColumn('end_date'), '>', $start->toDateString());
+
+        $this->scopeNotRejected($query);
     }
 
     /**
