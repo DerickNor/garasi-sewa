@@ -59,16 +59,6 @@ class User extends Authenticatable
     }
 
     /**
-     * Batch garasi yang dibuat admin.
-     *
-     * @return HasMany<GarageBatch, $this>
-     */
-    public function garageBatches(): HasMany
-    {
-        return $this->hasMany(GarageBatch::class, 'created_by');
-    }
-
-    /**
      * Perpanjangan sewa yang diproses admin.
      *
      * @return HasMany<RentalExtension, $this>

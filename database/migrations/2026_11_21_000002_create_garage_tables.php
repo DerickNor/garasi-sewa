@@ -8,24 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Tabel garasi: batch (harga per pembuatan), penghitung kode per tipe, dan unit garasi
- * (REQ-GAR-01, BR-02, BR-05).
+ * Tabel garasi beserta harga yang diinput admin saat membuat garasi berkelompok,
+ * dan penghitung nomor kode per tipe (REQ-GAR-01, BR-02, BR-05).
  */
 return new class extends Migration
 {
     public function up(): void
     {
         $garageTypes = array_column(GarageType::cases(), 'value');
-
-        Schema::create('garage_batches', function (Blueprint $table) use ($garageTypes) {
-            $table->id();
-            $table->enum('garage_type', $garageTypes);
-            $table->unsignedSmallInteger('quantity');
-            $table->decimal('daily_price', 12, 2);
-            $table->decimal('kwh_price', 12, 2)->nullable();
-            $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
-            $table->timestamps();
-        });
 
         Schema::create('garage_sequences', function (Blueprint $table) use ($garageTypes) {
             $table->enum('garage_type', $garageTypes)->primary();
@@ -39,9 +29,10 @@ return new class extends Migration
 
         Schema::create('garages', function (Blueprint $table) use ($garageTypes) {
             $table->id();
-            $table->foreignId('garage_batch_id')->constrained()->restrictOnDelete();
             $table->string('code', 4)->unique();
             $table->enum('garage_type', $garageTypes);
+            $table->decimal('daily_price', 12, 2);
+            $table->decimal('kwh_price', 12, 2)->nullable(); // hanya garasi mobil listrik (E)
             $table->enum('status', array_column(GarageStatus::cases(), 'value'))
                 ->default(GarageStatus::AVAILABLE->value);
             $table->timestamps();
@@ -54,6 +45,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('garages');
         Schema::dropIfExists('garage_sequences');
-        Schema::dropIfExists('garage_batches');
     }
 };

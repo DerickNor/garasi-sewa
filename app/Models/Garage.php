@@ -9,13 +9,12 @@ use Database\Factories\GarageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Satu unit garasi dengan kode S/C/E + 3 digit (BR-05).
+ * Satu unit garasi dengan kode S/C/E + 3 digit (BR-05) dan harga yang diinput admin (BR-02).
  */
-#[Fillable(['garage_batch_id', 'code', 'garage_type', 'status'])]
+#[Fillable(['code', 'garage_type', 'daily_price', 'kwh_price', 'status'])]
 class Garage extends Model
 {
     /** @use HasFactory<GarageFactory> */
@@ -28,18 +27,10 @@ class Garage extends Model
     {
         return [
             'garage_type' => GarageType::class,
+            'daily_price' => 'decimal:2',
+            'kwh_price' => 'decimal:2',
             'status' => GarageStatus::class,
         ];
-    }
-
-    /**
-     * Batch asal garasi (sumber harga).
-     *
-     * @return BelongsTo<GarageBatch, $this>
-     */
-    public function batch(): BelongsTo
-    {
-        return $this->belongsTo(GarageBatch::class, 'garage_batch_id');
     }
 
     /**
