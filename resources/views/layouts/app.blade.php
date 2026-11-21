@@ -27,6 +27,18 @@
                 </header>
             @endisset
 
+            <!-- Pesan hasil aksi -->
+            @if (session('status') || session('error'))
+                <div class="max-w-7xl mx-auto pt-6 px-4 sm:px-6 lg:px-8">
+                    @if (session('status'))
+                        <div class="rounded-md bg-green-50 border border-green-200 p-4 text-sm text-green-800">{{ session('status') }}</div>
+                    @endif
+                    @if (session('error'))
+                        <div class="rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-800">{{ session('error') }}</div>
+                    @endif
+                </div>
+            @endif
+
             <!-- Page Content -->
             <main>
                 {{ $slot }}
