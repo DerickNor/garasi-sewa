@@ -13,6 +13,7 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-6">
                 <p class="text-sm text-gray-500">Jumlah garasi</p>
                 <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $garageCount }}</p>
+                <a href="{{ route('admin.garages.index') }}" class="mt-3 inline-block text-sm text-indigo-600 hover:underline">Lihat daftar garasi</a>
             </div>
         </div>
     </div>
