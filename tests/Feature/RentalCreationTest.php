@@ -173,6 +173,15 @@ class RentalCreationTest extends TestCase
         $this->assertSame(0, Rental::count());
     }
 
+    public function test_approved_renter_can_open_rental_form(): void
+    {
+        $this->actingAs($this->renter)
+            ->get(route('renter.rentals.create'))
+            ->assertOk()
+            ->assertSee('Sewa Garasi Baru')
+            ->assertSee('name="payment_proof"', false);
+    }
+
     /** TC-040: admin tidak bisa membuka form sewa penyewa. */
     public function test_tc040_admin_cannot_open_rental_form(): void
     {
