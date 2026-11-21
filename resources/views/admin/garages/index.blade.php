@@ -4,9 +4,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">Daftar Garasi</h2>
-            @if (Route::has('admin.garages.create'))
-                <a href="{{ route('admin.garages.create') }}" class="rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700">Buat Garasi</a>
-            @endif
+            <a href="{{ route('admin.garages.create') }}" class="rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700">Buat Garasi</a>
         </div>
     </x-slot>
 

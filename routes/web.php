@@ -18,6 +18,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/garages', [GarageController::class, 'index'])->name('garages.index');
+    Route::get('/garages/create', [GarageController::class, 'create'])->name('garages.create');
+    Route::post('/garages', [GarageController::class, 'store'])->name('garages.store');
 
     Route::get('/renters', [RenterVerificationController::class, 'index'])->name('renters.index');
     Route::patch('/renters/{user}/approve', [RenterVerificationController::class, 'approve'])->name('renters.approve');
