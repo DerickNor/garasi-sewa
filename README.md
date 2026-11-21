@@ -30,6 +30,7 @@ Buat database `garasi` dan `garasi_test` (collation `utf8mb4_unicode_ci`) di Mar
 
 ```bash
 php artisan migrate --seed
+php artisan storage:link
 php artisan serve
 ```
 
