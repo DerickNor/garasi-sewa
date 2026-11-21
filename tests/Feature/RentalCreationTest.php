@@ -153,6 +153,24 @@ class RentalCreationTest extends TestCase
         $this->assertSame(0, Rental::count());
     }
 
+    /** Kapasitas baterai tidak dibatasi aturan bisnis; biaya isi listrik besar tetap tersimpan. */
+    public function test_large_battery_capacity_is_accepted(): void
+    {
+        $electricGarage = Garage::factory()->ofType(GarageType::ELECTRIC_CAR)->create(['code' => 'E901', 'daily_price' => 150000]);
+
+        $this->store([
+            'vehicle_type' => 'electric_car', 'battery_capacity_kwh' => 5000, 'battery_start_kwh' => 0,
+            'garage_type' => 'electric_car', 'garage_id' => $electricGarage->id,
+        ])->assertSessionHasNoErrors();
+
+        $rental = Rental::sole();
+        $this->assertEquals(5000, $rental->vehicle->battery_capacity_kwh);
+        $this->assertEquals(5000 * 2500, $rental->charging_fee);
+
+        $this->store(['vehicle_type' => 'electric_car', 'battery_capacity_kwh' => 0, 'battery_start_kwh' => 0])
+            ->assertSessionHasErrors('battery_capacity_kwh');
+    }
+
     /** TC-064: tanggal mulai hari ini s.d. 30 hari ke depan. */
     public function test_tc064_start_date_range(): void
     {

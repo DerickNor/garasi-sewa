@@ -28,8 +28,11 @@ class StoreRentalRequest extends FormRequest
     /** Ukuran maksimum bukti pembayaran dalam kilobyte (ASM-08). */
     private const MAX_PROOF_KB = 2048;
 
-    /** Batas atas kapasitas baterai (kWh) yang masuk akal. */
-    private const MAX_BATTERY_KWH = 999;
+    /**
+     * Kapasitas baterai tidak dibatasi aturan bisnis; nilai ini hanya batas teknis kolom decimal(10,2)
+     * agar angka yang tidak muat di database ditolak dengan pesan, bukan error.
+     */
+    private const MAX_BATTERY_KWH = 99999999.99;
 
     /**
      * Hak akses sudah dibatasi middleware role:penyewa dan renter.approved pada rute.
@@ -62,7 +65,7 @@ class StoreRentalRequest extends FormRequest
             'brand' => ['required', 'string', 'max:100'],
             'model' => ['required', 'string', 'max:100'],
             'battery_capacity_kwh' => ['exclude_unless:vehicle_type,'.VehicleType::ELECTRIC_CAR->value, 'required', 'numeric', 'gt:0', 'max:'.self::MAX_BATTERY_KWH],
-            'battery_start_kwh' => ['exclude_unless:vehicle_type,'.VehicleType::ELECTRIC_CAR->value, 'required', 'numeric', 'min:0', 'lte:battery_capacity_kwh'],
+            'battery_start_kwh' => ['exclude_unless:vehicle_type,'.VehicleType::ELECTRIC_CAR->value, 'required', 'numeric', 'min:0', 'lte:battery_capacity_kwh', 'max:'.self::MAX_BATTERY_KWH],
             'rental_type' => ['required', Rule::enum(RentalType::class)],
             'days' => ['exclude_unless:rental_type,'.RentalType::DAILY->value, 'required', 'integer', 'min:1'],
             'start_date' => [
