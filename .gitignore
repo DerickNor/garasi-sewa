@@ -26,5 +26,9 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
+# Instruksi asisten AI (lokal, tidak dipublikasikan)
+/CLAUDE.md
+/AGENTS.md
+
 # Dokumen kerja lokal
 /specs/
