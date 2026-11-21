@@ -49,6 +49,28 @@ class RentalPricingService
     }
 
     /**
+     * Lama sewa dalam hari: jumlah hari input untuk harian, jumlah hari bulan tanggal mulai untuk bulanan (BR-03).
+     *
+     * @param  int|null  $days  jumlah hari, wajib untuk sewa harian; diabaikan untuk bulanan
+     *
+     * @throws InvalidArgumentException bila jumlah hari harian di luar 1..maxDailyDays
+     */
+    public function durationDays(RentalType $type, ?int $days, CarbonInterface $start): int
+    {
+        if ($type === RentalType::MONTHLY) {
+            return $this->daysInMonth($start);
+        }
+
+        $maxDays = $this->maxDailyDays($start);
+
+        if ($days === null || $days < 1 || $days > $maxDays) {
+            throw new InvalidArgumentException("Jumlah hari sewa harian harus 1 sampai {$maxDays}.");
+        }
+
+        return $days;
+    }
+
+    /**
      * Hitung durasi, tanggal selesai, dan biaya sewa baru.
      *
      * @param  int|null  $days  jumlah hari, wajib untuk sewa harian; diabaikan untuk bulanan
@@ -74,20 +96,10 @@ class RentalPricingService
         }
 
         $start = CarbonImmutable::instance($start)->startOfDay();
-
-        if ($type === RentalType::MONTHLY) {
-            $duration = $this->daysInMonth($start);
-            $rentalFee = $this->monthlyPrice($dailyPrice);
-        } else {
-            $maxDays = $this->maxDailyDays($start);
-
-            if ($days === null || $days < 1 || $days > $maxDays) {
-                throw new InvalidArgumentException("Jumlah hari sewa harian harus 1 sampai {$maxDays}.");
-            }
-
-            $duration = $days;
-            $rentalFee = $this->money($days * $dailyPrice);
-        }
+        $duration = $this->durationDays($type, $days, $start);
+        $rentalFee = $type === RentalType::MONTHLY
+            ? $this->monthlyPrice($dailyPrice)
+            : $this->money($duration * $dailyPrice);
 
         $chargingFee = $vehicleType->isElectric()
             ? $this->chargingFee($garageType, $batteryCapacityKwh, $batteryStartKwh, $kwhPrice)

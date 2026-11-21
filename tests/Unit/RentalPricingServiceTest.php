@@ -160,6 +160,17 @@ class RentalPricingServiceTest extends TestCase
         $this->assertSame($expectedDuration, $result->durationDays);
     }
 
+    /** Durasi bisa dihitung tanpa harga, dipakai untuk menampilkan tanggal selesai di form. */
+    public function test_duration_days_without_prices(): void
+    {
+        $this->assertSame(5, $this->pricing->durationDays(RentalType::DAILY, 5, self::date('2026-11-21')));
+        $this->assertSame(28, $this->pricing->durationDays(RentalType::MONTHLY, null, self::date('2026-02-15')));
+        $this->assertSame(31, $this->pricing->durationDays(RentalType::MONTHLY, 3, self::date('2026-12-02')));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->pricing->durationDays(RentalType::DAILY, 30, self::date('2026-11-21'));
+    }
+
     // ---------------------------------------------------------------- BR-04 mobil listrik
 
     /** TC-009: biaya isi listrik di garasi E. */
