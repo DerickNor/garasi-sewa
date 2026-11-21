@@ -2,7 +2,8 @@
 
 Aplikasi web untuk uji kompetensi skema **Pemrogram** (FR.IA.04A).
 Penyewa dapat mendaftar dan menyewa garasi sepeda, mobil, atau mobil listrik secara harian/bulanan;
-admin membuat garasi berkelompok, memverifikasi pendaftar, memperpanjang sewa, dan melihat laporan.
+admin membuat garasi berkelompok, memverifikasi pendaftar dan bukti pembayaran sewa, memperpanjang sewa,
+dan melihat laporan.
 
 ## Teknologi
 
@@ -36,9 +37,9 @@ Browser <------------ View (Blade) <--+
 | Folder | Isi |
 |---|---|
 | `app/Http/Middleware` | `EnsureRole` (batasi halaman per role), `EnsureRenterApproved` (hanya penyewa yang sudah disetujui boleh menyewa) |
-| `app/Http/Controllers` | `Admin/*` (garasi, verifikasi, perpanjangan, laporan), `Renter/*` (dashboard, sewa), `Auth/*` (daftar, masuk) |
+| `app/Http/Controllers` | `Admin/*` (garasi, verifikasi pendaftar, verifikasi pembayaran, perpanjangan, laporan), `Renter/*` (dashboard, sewa), `Auth/*` (daftar, masuk) |
 | `app/Http/Requests` | Validasi form: daftar, buat garasi, sewa baru, perpanjangan |
-| `app/Services` | Logika bisnis: `RentalPricingService` (rumus harga dan tanggal), `GarageService` (kode garasi, ketersediaan), `RentalService` (simpan sewa dan perpanjangan dalam transaksi), `ReportService` (laporan) |
+| `app/Services` | Logika bisnis: `RentalPricingService` (rumus harga dan tanggal), `GarageService` (kode garasi, ketersediaan), `RentalService` (simpan sewa, verifikasi pembayaran, dan perpanjangan dalam transaksi), `ReportService` (laporan) |
 | `app/ValueObjects` | `PriceBreakdown`, `ExtensionBreakdown`: hasil perhitungan biaya yang tidak bisa diubah |
 | `app/Models` | `User`, `Garage`, `GarageSequence`, `Vehicle`, `Rental`, `RentalExtension` beserta relasinya |
 | `app/Enums` | Tipe garasi, tipe kendaraan, tipe sewa, role, status, beserta aturan kecocokan garasi–kendaraan |
@@ -49,13 +50,15 @@ Tempat aturan bisnis utama:
 
 | Aturan | Lokasi |
 |---|---|
-| Sepeda/motor di garasi sepeda, mobil di garasi mobil, mobil listrik di garasi mobil atau mobil listrik | `GarageType::acceptsVehicle()` |
+| Tipe garasi otomatis dari kendaraan: sepeda/motor di garasi sepeda, mobil di garasi mobil, mobil listrik di garasi mobil listrik | `VehicleType::defaultGarageType()`, `StoreRentalRequest` |
 | Harga bulanan 25 × harian, durasi bulanan mengikuti jumlah hari bulan mulai | `RentalPricingService::calculateNewRental()` |
 | Biaya isi listrik hingga penuh di garasi mobil listrik | `RentalPricingService::chargingFee()` |
 | Kurang bayar perpanjangan (bulan penuh + sisa hari, selalu positif) | `RentalPricingService::calculateExtension()` |
 | Kode garasi S001/C010/E001, maksimum 999 per tipe | `GarageService::createGarages()` |
 | Garasi tersedia bila tidak ada sewa yang rentang tanggalnya bertabrakan | `Rental::scopeOverlapping()` |
 | Status garasi `used` setelah disewa, kembali tersedia setelah sewa berakhir | `RentalService::createRental()`, `GarageService::releaseExpired()` |
+| Sewa baru menunggu verifikasi bukti pembayaran oleh admin; hanya sewa yang diterima yang berlangsung, bisa diperpanjang, dan masuk laporan | `RentalService::approvePayment()`, `RentalService::rejectPayment()`, `Rental::scopePaymentApproved()` |
+| Sewa yang pembayarannya ditolak tidak menahan garasi dan plat kendaraan | `Rental::scopeNotRejected()` |
 
 ## Menjalankan secara lokal
 
