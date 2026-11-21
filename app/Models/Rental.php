@@ -6,6 +6,7 @@ use App\Enums\RentalType;
 use Carbon\CarbonInterface;
 use Database\Factories\RentalFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,6 +82,18 @@ class Rental extends Model
     public function extensions(): HasMany
     {
         return $this->hasMany(RentalExtension::class);
+    }
+
+    /**
+     * Batasi query ke sewa yang aktif pada tanggal $date: start_date <= $date < end_date (ASM-01).
+     *
+     * @param  Builder<Rental>  $query
+     */
+    public function scopeActiveOn(Builder $query, CarbonInterface $date): void
+    {
+        $day = $date->toDateString();
+
+        $query->whereDate('start_date', '<=', $day)->whereDate('end_date', '>', $day);
     }
 
     /**

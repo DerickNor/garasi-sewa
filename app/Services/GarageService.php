@@ -6,12 +6,13 @@ use App\Enums\GarageStatus;
 use App\Enums\GarageType;
 use App\Models\Garage;
 use App\Models\GarageSequence;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * Pembuatan garasi berkelompok dengan kode otomatis (REQ-GAR-01, BR-05).
+ * Pembuatan garasi berkelompok dengan kode otomatis (REQ-GAR-01, BR-05) dan ketersediaan garasi (BR-06).
  */
 class GarageService
 {
@@ -83,6 +84,33 @@ class GarageService
         $lastNumber = GarageSequence::whereKey($type->value)->value('last_number') ?? 0;
 
         return GarageSequence::MAX_NUMBER - $lastNumber;
+    }
+
+    /**
+     * Garasi bertipe $type yang tersedia pada tanggal $date, urut kode (REQ-RENT-04, BR-06.1).
+     *
+     * Ketersediaan diputuskan dari tanggal sewa, bukan dari kolom status.
+     *
+     * @return Collection<int, Garage>
+     */
+    public function availableGarages(GarageType $type, CarbonInterface $date): Collection
+    {
+        return Garage::where('garage_type', $type)
+            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->activeOn($date))
+            ->orderBy('code')
+            ->get();
+    }
+
+    /**
+     * Kembalikan status garasi `used` yang sudah tidak punya sewa aktif pada $today menjadi `available` (BR-06.3).
+     *
+     * @return int jumlah garasi yang dilepas
+     */
+    public function releaseExpired(CarbonInterface $today): int
+    {
+        return Garage::where('status', GarageStatus::USED)
+            ->whereDoesntHave('rentals', fn ($rentals) => $rentals->activeOn($today))
+            ->update(['status' => GarageStatus::AVAILABLE]);
     }
 
     /**

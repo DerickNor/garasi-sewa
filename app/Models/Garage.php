@@ -48,11 +48,6 @@ class Garage extends Model
      */
     public function isAvailableOn(CarbonInterface $date): bool
     {
-        $day = $date->toDateString();
-
-        return ! $this->rentals()
-            ->whereDate('start_date', '<=', $day)
-            ->whereDate('end_date', '>', $day)
-            ->exists();
+        return ! $this->rentals()->activeOn($date)->exists();
     }
 }
