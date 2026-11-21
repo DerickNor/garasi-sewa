@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Enums\GarageType;
 use App\Enums\GarageStatus;
+use App\Enums\GarageType;
 use App\Models\Garage;
 use App\Models\Rental;
 use App\Models\User;
