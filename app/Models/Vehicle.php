@@ -31,6 +31,20 @@ class Vehicle extends Model
     }
 
     /**
+     * Seragamkan penulisan nomor plat: huruf besar dan satu spasi antara huruf dan angka, mis. "l1234ab" → "L 1234 AB".
+     */
+    public static function normalizePlate(?string $plate): ?string
+    {
+        $compact = strtoupper(preg_replace('/\s+/', '', (string) $plate));
+
+        if ($compact === '') {
+            return null;
+        }
+
+        return trim(preg_replace('/(?<=[A-Z])(?=\d)|(?<=\d)(?=[A-Z])/', ' ', $compact));
+    }
+
+    /**
      * Pemilik kendaraan.
      *
      * @return BelongsTo<User, $this>
