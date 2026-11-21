@@ -10,18 +10,26 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Validasi dan proses masuk, termasuk pembatasan percobaan masuk yang gagal (REQ-AUTH-02).
+ */
 class LoginRequest extends FormRequest
 {
+    /** Jumlah percobaan masuk gagal sebelum dikunci sementara. */
+    private const MAX_ATTEMPTS = 5;
+
+    /** Jumlah detik dalam satu menit, untuk pesan waktu tunggu. */
+    private const SECONDS_PER_MINUTE = 60;
+
     /**
-     * Determine if the user is authorized to make this request.
-     */
+     * Form masuk terbuka untuk semua pengunjung (rute dibatasi middleware guest).
     public function authorize(): bool
     {
         return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Aturan validasi form masuk.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -34,7 +42,8 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
+     * Coba masuk dengan email dan password. Pesan gagal sengaja umum agar tidak membocorkan
+     * apakah email terdaftar (REQ-AUTH-02.2).
      *
      * @throws ValidationException
      */
@@ -54,13 +63,13 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Ensure the login request is not rate limited.
+     * Tolak sementara bila sudah terlalu banyak percobaan masuk gagal dari email dan IP yang sama.
      *
      * @throws ValidationException
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (! RateLimiter::tooManyAttempts($this->throttleKey(), self::MAX_ATTEMPTS)) {
             return;
         }
 
@@ -71,13 +80,13 @@ class LoginRequest extends FormRequest
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [
                 'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
+                'minutes' => ceil($seconds / self::SECONDS_PER_MINUTE),
             ]),
         ]);
     }
 
     /**
-     * Get the rate limiting throttle key for the request.
+     * Kunci pembatasan percobaan masuk: kombinasi email dan alamat IP.
      */
     public function throttleKey(): string
     {

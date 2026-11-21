@@ -63,12 +63,18 @@ class RenterVerificationController extends Controller
             ->with('status', "Pendaftaran {$user->name} ditolak.");
     }
 
+    /**
+     * Hanya akun penyewa yang masih menunggu verifikasi yang boleh diproses.
+     */
     private function isPendingRenter(User $user): bool
     {
         return $user->role === UserRole::PENYEWA
             && $user->verification_status === VerificationStatus::PENDING;
     }
 
+    /**
+     * Kembali ke daftar dengan pesan bahwa pengguna ini tidak bisa diproses lagi (REQ-VER-02.3).
+     */
     private function alreadyProcessed(): RedirectResponse
     {
         return redirect()->route('admin.renters.index')

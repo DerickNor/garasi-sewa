@@ -5,10 +5,13 @@ namespace App\View\Components;
 use Illuminate\View\Component;
 use Illuminate\View\View;
 
+/**
+ * Layout halaman setelah masuk (navigasi, judul halaman, dan pesan hasil aksi).
+ */
 class AppLayout extends Component
 {
     /**
-     * Get the view / contents that represents the component.
+     * Tampilan Blade untuk komponen layout ini.
      */
     public function render(): View
     {

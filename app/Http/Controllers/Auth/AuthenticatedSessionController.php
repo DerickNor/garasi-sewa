@@ -9,10 +9,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
+/**
+ * Masuk dan keluar aplikasi (REQ-AUTH-02). Email dipakai sebagai username.
+ */
 class AuthenticatedSessionController extends Controller
 {
     /**
-     * Display the login view.
+     * Tampilkan form masuk.
      */
     public function create(): View
     {
@@ -20,19 +23,20 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Handle an incoming authentication request.
+     * Proses masuk. Setelah berhasil, /dashboard mengarahkan admin dan penyewa ke halamannya masing-masing.
      */
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
 
+        // Buat ulang ID sesi untuk mencegah session fixation.
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
     /**
-     * Destroy an authenticated session.
+     * Keluar: akhiri sesi dan buat token CSRF baru.
      */
     public function destroy(Request $request): RedirectResponse
     {

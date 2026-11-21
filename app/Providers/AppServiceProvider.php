@@ -5,10 +5,13 @@ namespace App\Providers;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 
+/**
+ * Pengaturan awal aplikasi, termasuk directive Blade @rupiah.
+ */
 class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
+     * Daftarkan service aplikasi (belum ada yang perlu didaftarkan manual).
      */
     public function register(): void
     {
@@ -16,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstrap any application services.
+     * Jalankan pengaturan saat aplikasi mulai.
      */
     public function boot(): void
     {

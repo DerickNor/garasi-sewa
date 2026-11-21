@@ -170,6 +170,9 @@ class RentalPricingService
         return $this->money(($capacity - $battery) * $kwhPrice);
     }
 
+    /**
+     * Bulatkan nilai uang ke 2 angka desimal (sen) agar tidak ada sisa pembulatan float.
+     */
     private function money(float $amount): float
     {
         return round($amount, self::MONEY_PRECISION);

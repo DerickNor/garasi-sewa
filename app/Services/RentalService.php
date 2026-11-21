@@ -37,6 +37,9 @@ class RentalService
 
     private const PROOF_DIRECTORY = 'proofs';
 
+    /**
+     * @param  RentalPricingService  $pricing  satu-satunya tempat rumus harga dan tanggal
+     */
     public function __construct(private readonly RentalPricingService $pricing) {}
 
     /**

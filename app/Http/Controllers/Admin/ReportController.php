@@ -19,6 +19,9 @@ class ReportController extends Controller
 
     private const MAX_YEAR = 2100;
 
+    /**
+     * @param  ReportService  $reports  penghitung data laporan
+     */
     public function __construct(private readonly ReportService $reports) {}
 
     /**

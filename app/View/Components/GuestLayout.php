@@ -5,10 +5,13 @@ namespace App\View\Components;
 use Illuminate\View\Component;
 use Illuminate\View\View;
 
+/**
+ * Layout halaman sebelum masuk (form masuk dan daftar).
+ */
 class GuestLayout extends Component
 {
     /**
-     * Get the view / contents that represents the component.
+     * Tampilan Blade untuk komponen layout ini.
      */
     public function render(): View
     {
