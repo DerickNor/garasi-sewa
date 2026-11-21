@@ -25,6 +25,9 @@ use Throwable;
  */
 class RentalService
 {
+    /** Tanggal mulai sewa paling lambat sekian hari dari hari ini (ASM-12). */
+    public const MAX_ADVANCE_DAYS = 30;
+
     /** Disk dan folder penyimpanan bukti pembayaran. */
     public const PROOF_DISK = 'public';
 

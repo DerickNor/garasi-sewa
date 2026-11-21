@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GarageController;
 use App\Http\Controllers\Admin\RenterVerificationController;
 use App\Http\Controllers\Renter\DashboardController as RenterDashboardController;
+use App\Http\Controllers\Renter\RentalController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
 Route::middleware(['auth', 'role:penyewa'])->prefix('renter')->name('renter.')->group(function () {
     Route::get('/dashboard', [RenterDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/rentals', [RentalController::class, 'index'])->name('rentals.index');
+
+    Route::middleware('renter.approved')->group(function () {
+        Route::get('/rentals/create', [RentalController::class, 'create'])->name('rentals.create');
+        Route::get('/garages/available', [RentalController::class, 'availableGarages'])->name('garages.available');
+        Route::post('/rentals/preview', [RentalController::class, 'preview'])->name('rentals.preview');
+        Route::post('/rentals', [RentalController::class, 'store'])->name('rentals.store');
+    });
 });
 
 require __DIR__.'/auth.php';

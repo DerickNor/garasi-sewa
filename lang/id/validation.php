@@ -7,11 +7,13 @@
 return [
     'after' => ':attribute harus tanggal setelah :date.',
     'after_or_equal' => ':attribute harus tanggal setelah atau sama dengan :date.',
+    'before_or_equal' => ':attribute harus tanggal sebelum atau sama dengan :date.',
     'between' => [
         'numeric' => ':attribute harus antara :min dan :max.',
     ],
     'confirmed' => 'Konfirmasi :attribute tidak cocok.',
     'date' => ':attribute bukan tanggal yang valid.',
+    'date_format' => ':attribute harus berformat :format.',
     'digits' => ':attribute harus :digits digit angka.',
     'digits_between' => ':attribute harus :min sampai :max digit angka.',
     'email' => ':attribute harus alamat email yang valid.',
@@ -80,5 +82,6 @@ return [
         'garage_id' => 'garasi',
         'payment_proof' => 'bukti pembayaran',
         'new_end_date' => 'tanggal selesai baru',
+        'start_date' => 'tanggal mulai',
     ],
 ];
