@@ -14,4 +14,11 @@ return [
         'password' => env('ADMIN_PASSWORD', 'password'),
     ],
 
+    /*
+     * Password semua akun penyewa contoh yang dibuat DemoSeeder (hanya untuk demo lokal).
+     */
+    'demo' => [
+        'password' => env('DEMO_PASSWORD', 'password'),
+    ],
+
 ];
