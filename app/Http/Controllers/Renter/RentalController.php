@@ -59,13 +59,14 @@ class RentalController extends Controller
     }
 
     /**
-     * Periode sewa dan daftar garasi yang kosong untuk seluruh periode tersebut (REQ-RENT-04, REQ-RENT-05).
+     * Periode sewa (tanggal selesai otomatis) dan daftar garasi yang kosong untuk seluruh periode tersebut
+     * (REQ-RENT-04, REQ-RENT-05). Bila tipe garasi belum dipilih, hanya periodenya yang dikembalikan.
      */
     public function availableGarages(Request $request, RentalPricingService $pricing, GarageService $garages): JsonResponse
     {
         $today = today();
         $input = $request->validate([
-            'garage_type' => ['required', Rule::enum(GarageType::class)],
+            'garage_type' => ['nullable', Rule::enum(GarageType::class)],
             'rental_type' => ['required', Rule::enum(RentalType::class)],
             'days' => ['exclude_unless:rental_type,'.RentalType::DAILY->value, 'required', 'integer', 'min:1'],
             'start_date' => [
@@ -84,6 +85,7 @@ class RentalController extends Controller
         }
 
         $end = $start->addDays($duration);
+        $garageType = isset($input['garage_type']) ? GarageType::from($input['garage_type']) : null;
 
         return response()->json([
             'start_date' => $start->toDateString(),
@@ -91,7 +93,7 @@ class RentalController extends Controller
             'last_day' => $end->subDay()->toDateString(),
             'duration_days' => $duration,
             'max_daily_days' => $pricing->maxDailyDays($start),
-            'garages' => $garages->availableGarages(GarageType::from($input['garage_type']), $start, $end)
+            'garages' => $garageType === null ? [] : $garages->availableGarages($garageType, $start, $end)
                 ->map(fn (Garage $garage) => [
                     'id' => $garage->id,
                     'code' => $garage->code,

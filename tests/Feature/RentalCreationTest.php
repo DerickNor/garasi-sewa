@@ -209,6 +209,26 @@ class RentalCreationTest extends TestCase
             ->assertJsonCount(1, 'garages');
     }
 
+    /** Tanggal selesai sudah bisa ditampilkan sebelum tipe garasi dipilih. */
+    public function test_available_garages_endpoint_returns_period_without_garage_type(): void
+    {
+        $this->actingAs($this->renter)
+            ->getJson(route('renter.garages.available', ['rental_type' => 'monthly', 'start_date' => '2026-11-21']))
+            ->assertOk()
+            ->assertJsonPath('end_date', '2026-12-21')
+            ->assertJsonPath('duration_days', 30)
+            ->assertJsonCount(0, 'garages');
+    }
+
+    public function test_rental_form_shows_start_and_end_date_fields(): void
+    {
+        $this->actingAs($this->renter)
+            ->get(route('renter.rentals.create'))
+            ->assertSee('Tanggal mulai')
+            ->assertSee('Tanggal selesai')
+            ->assertSee('id="end_date"', false);
+    }
+
     public function test_available_garages_endpoint_validates_input(): void
     {
         $this->actingAs($this->renter)

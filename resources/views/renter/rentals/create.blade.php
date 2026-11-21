@@ -45,17 +45,15 @@
 
                 async refreshGarages() {
                     this.price = null;
-                    if (!this.garageType || !this.startDate || (this.isDaily && !this.days)) {
+                    if (!this.startDate || (this.isDaily && !this.days)) {
                         this.period = null;
                         this.garages = [];
                         return;
                     }
 
-                    const params = new URLSearchParams({
-                        garage_type: this.garageType,
-                        rental_type: this.rentalType,
-                        start_date: this.startDate,
-                    });
+                    // Tanggal selesai dihitung server walau tipe garasi belum dipilih; daftar garasi menyusul.
+                    const params = new URLSearchParams({ rental_type: this.rentalType, start_date: this.startDate });
+                    if (this.garageType) params.append('garage_type', this.garageType);
                     if (this.isDaily) params.append('days', this.days);
 
                     this.loadingGarages = true;
@@ -73,7 +71,9 @@
                         this.period = body;
                         this.garages = body.garages;
                         if (!this.garages.some(garage => String(garage.id) === this.garageId)) this.garageId = '';
-                        this.garageMessage = this.garages.length ? '' : 'Tidak ada garasi yang tersedia untuk tanggal tersebut.';
+                        this.garageMessage = !this.garageType
+                            ? 'Pilih tipe garasi untuk melihat garasi yang tersedia.'
+                            : (this.garages.length ? '' : 'Tidak ada garasi yang tersedia untuk tanggal tersebut.');
                         this.refreshPrice();
                     } finally {
                         this.loadingGarages = false;
@@ -206,7 +206,7 @@
                     </div>
                     <x-input-error :messages="$errors->get('rental_type')" class="mt-2" />
 
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="grid gap-4 sm:grid-cols-3">
                         <div>
                             <x-input-label for="start_date" value="Tanggal mulai" />
                             <x-text-input id="start_date" name="start_date" type="date" class="mt-1 block w-full"
@@ -222,6 +222,14 @@
                                           x-bind:disabled="!isDaily" x-bind:required="isDaily" />
                             <p class="mt-1 text-xs text-gray-500" x-show="period">Maksimal <span x-text="period?.max_daily_days"></span> hari untuk bulan ini.</p>
                             <x-input-error :messages="$errors->get('days')" class="mt-2" />
+                        </div>
+                        <div>
+                            <x-input-label for="end_date" value="Tanggal selesai (otomatis)" />
+                            {{-- Hanya ditampilkan; server selalu menghitung ulang tanggal selesai saat menyimpan. --}}
+                            <x-text-input id="end_date" type="date" readonly tabindex="-1"
+                                          class="mt-1 block w-full bg-gray-100 text-gray-700"
+                                          x-bind:value="period ? period.end_date : ''" />
+                            <p class="mt-1 text-xs text-gray-500">Tanggal garasi dikembalikan.</p>
                         </div>
                     </div>
 
