@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GarageController;
 use App\Http\Controllers\Admin\RentalExtensionController;
 use App\Http\Controllers\Admin\RenterVerificationController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Renter\DashboardController as RenterDashboardController;
 use App\Http\Controllers\Renter\RentalController;
 use Illuminate\Http\Request;
@@ -27,6 +28,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/extensions/{rental}/create', [RentalExtensionController::class, 'create'])->name('extensions.create');
     Route::post('/extensions/{rental}/preview', [RentalExtensionController::class, 'preview'])->name('extensions.preview');
     Route::post('/extensions/{rental}', [RentalExtensionController::class, 'store'])->name('extensions.store');
+
+    Route::redirect('/reports', '/admin/reports/monthly')->name('reports.index');
+    Route::get('/reports/monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
+    Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
+    Route::get('/reports/by-type', [ReportController::class, 'byType'])->name('reports.by-type');
+    Route::get('/reports/by-renter', [ReportController::class, 'byRenter'])->name('reports.by-renter');
 
     Route::get('/renters', [RenterVerificationController::class, 'index'])->name('renters.index');
     Route::patch('/renters/{user}/approve', [RenterVerificationController::class, 'approve'])->name('renters.approve');
