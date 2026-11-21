@@ -13,6 +13,19 @@ enum VehicleType: string
     case ELECTRIC_CAR = 'electric_car';
 
     /**
+     * Nama tipe kendaraan untuk ditampilkan.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::BICYCLE => 'Sepeda',
+            self::MOTORCYCLE => 'Sepeda Motor',
+            self::CAR => 'Mobil',
+            self::ELECTRIC_CAR => 'Mobil Listrik',
+        };
+    }
+
+    /**
      * Nomor plat wajib untuk semua kendaraan kecuali sepeda.
      */
     public function requiresPlate(): bool

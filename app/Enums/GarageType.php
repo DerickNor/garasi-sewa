@@ -12,6 +12,18 @@ enum GarageType: string
     case ELECTRIC_CAR = 'electric_car';
 
     /**
+     * Nama tipe garasi untuk ditampilkan.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::BICYCLE => 'Sepeda',
+            self::CAR => 'Mobil',
+            self::ELECTRIC_CAR => 'Mobil Listrik',
+        };
+    }
+
+    /**
      * Huruf awalan kode garasi, mis. S untuk S001.
      */
     public function prefix(): string

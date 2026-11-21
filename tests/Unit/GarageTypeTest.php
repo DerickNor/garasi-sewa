@@ -42,6 +42,13 @@ class GarageTypeTest extends TestCase
         $this->assertSame($expected, $garage->acceptsVehicle($vehicle));
     }
 
+    public function test_label_in_indonesian(): void
+    {
+        $this->assertSame('Sepeda', GarageType::BICYCLE->label());
+        $this->assertSame('Mobil', GarageType::CAR->label());
+        $this->assertSame('Mobil Listrik', GarageType::ELECTRIC_CAR->label());
+    }
+
     /** TC-024: prefix kode garasi S, C, E. */
     public function test_prefix_per_garage_type(): void
     {

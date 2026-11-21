@@ -37,6 +37,14 @@ class VehicleTypeTest extends TestCase
         }
     }
 
+    public function test_label_in_indonesian(): void
+    {
+        $this->assertSame('Sepeda', VehicleType::BICYCLE->label());
+        $this->assertSame('Sepeda Motor', VehicleType::MOTORCYCLE->label());
+        $this->assertSame('Mobil', VehicleType::CAR->label());
+        $this->assertSame('Mobil Listrik', VehicleType::ELECTRIC_CAR->label());
+    }
+
     /** TC-023: nomor plat wajib kecuali sepeda. */
     public function test_requires_plate_except_bicycle(): void
     {
