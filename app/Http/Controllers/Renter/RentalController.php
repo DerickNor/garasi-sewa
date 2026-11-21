@@ -138,6 +138,6 @@ class RentalController extends Controller
         }
 
         return redirect()->route('renter.rentals.index')
-            ->with('status', "Sewa garasi {$rental->garage->code} berhasil disimpan.");
+            ->with('status', "Sewa garasi {$rental->garage->code} berhasil disimpan dan menunggu verifikasi pembayaran oleh admin.");
     }
 }

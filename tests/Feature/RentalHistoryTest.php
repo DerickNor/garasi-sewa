@@ -47,6 +47,20 @@ class RentalHistoryTest extends TestCase
             ->assertDontSee($other->garage->code);
     }
 
+    /** TC-090: riwayat menampilkan status pembayaran yang belum diterima. */
+    public function test_tc090_history_shows_payment_status(): void
+    {
+        $renter = User::factory()->create();
+        Rental::factory()->pendingPayment()->for($renter)->for(Garage::factory()->create(['code' => 'C901']))->create();
+        Rental::factory()->rejectedPayment()->for($renter)->for(Garage::factory()->create(['code' => 'C902']))->create();
+
+        $this->actingAs($renter)
+            ->get(route('renter.rentals.index'))
+            ->assertOk()
+            ->assertSeeInOrder(['C901', 'Menunggu verifikasi'])
+            ->assertSeeInOrder(['C902', 'Pembayaran ditolak']);
+    }
+
     public function test_pending_renter_can_open_empty_history(): void
     {
         $this->actingAs(User::factory()->pending()->create())

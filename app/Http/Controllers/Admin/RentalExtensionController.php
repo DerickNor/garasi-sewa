@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRentalExtensionRequest;
 use App\Models\Rental;
@@ -32,6 +33,11 @@ class RentalExtensionController extends Controller
      */
     public function create(Rental $rental): View|RedirectResponse
     {
+        if ($rental->payment_status !== PaymentStatus::APPROVED) {
+            return redirect()->route('admin.extensions.index')
+                ->with('error', 'Pembayaran sewa ini belum diterima admin sehingga belum dapat diperpanjang.');
+        }
+
         if ($rental->end_date->lte(today())) {
             return redirect()->route('admin.extensions.index')
                 ->with('error', 'Sewa ini sudah berakhir sehingga tidak dapat diperpanjang.');

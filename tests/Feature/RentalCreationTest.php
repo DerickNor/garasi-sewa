@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\GarageStatus;
 use App\Enums\GarageType;
+use App\Enums\PaymentStatus;
 use App\Models\Garage;
 use App\Models\Rental;
 use App\Models\User;
@@ -67,9 +68,10 @@ class RentalCreationTest extends TestCase
     {
         $this->store()
             ->assertRedirect(route('renter.rentals.index'))
-            ->assertSessionHas('status');
+            ->assertSessionHas('status', fn (string $message) => str_contains($message, 'menunggu verifikasi pembayaran'));
 
         $rental = Rental::sole();
+        $this->assertSame(PaymentStatus::PENDING, $rental->payment_status);
         $this->assertTrue($rental->user->is($this->renter));
         $this->assertEquals(300000, $rental->total_cost);
         $this->assertSame(GarageStatus::USED, $this->carGarage->refresh()->status);

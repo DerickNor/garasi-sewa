@@ -1,4 +1,4 @@
-@php use App\Enums\RentalType; @endphp
+@php use App\Enums\PaymentStatus; use App\Enums\RentalType; @endphp
 
 <x-app-layout>
     <x-slot name="header">
@@ -33,6 +33,8 @@
                                 @php
                                     $today = today();
                                     $status = match (true) {
+                                        $rental->payment_status === PaymentStatus::PENDING => [PaymentStatus::PENDING->label(), 'bg-yellow-100 text-yellow-800'],
+                                        $rental->payment_status === PaymentStatus::REJECTED => [PaymentStatus::REJECTED->label(), 'bg-red-100 text-red-800'],
                                         $rental->end_date->lte($today) => ['Selesai', 'bg-gray-100 text-gray-700'],
                                         $rental->start_date->gt($today) => ['Akan datang', 'bg-blue-100 text-blue-800'],
                                         default => ['Berjalan', 'bg-green-100 text-green-800'],
